@@ -1,0 +1,247 @@
+{% extends 'geodata/base.html' %}
+
+<!-- 设置页面标题 -->
+{% block title %}上传蚀变数据{% endblock %}
+
+<!-- 主要内容区域 -->
+{% block content %}
+<!-- 页面容器，使用Bootstrap栅格系统 -->
+<div class="container mt-4">
+    <!-- 标题行 -->
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">上传蚀变数据</h2>
+            <!-- 错误提示区域 -->
+            {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+            {% endif %}
+            <!-- 成功提示区域 -->
+            {% if success %}
+            <div class="alert alert-success">{{ success }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 上传表单区域 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <!-- 文件上传表单 -->
+                    <form method="post" enctype="multipart/form-data" id="alterationUploadForm">
+                        {% csrf_token %}
+                        <!-- 蚀变处理方法选择 -->
+                        <div class="mb-3">
+                            <label class="form-label">选择蚀变处理方法：</label>
+                            <select class="form-select" name="alteration_type" required>
+                                <option value="pc">PC方法</option>
+                                <option value="ratio">Ratio方法</option>
+                            </select>
+                        </div>
+                        
+                        <!-- 文件选择区域 -->
+                        <div class="mb-3">
+                            <label class="form-label">选择文件：</label>
+                            <input type="file" class="form-control" name="files" multiple accept=".hdr,.img" required>
+                        </div>
+
+                        <!-- 文件命名规则说明 -->
+                        <div class="alert alert-info">
+                            <h6>文件命名规则：</h6>
+                            <p class="mb-2">请确保上传的文件名与原始数据相对应，例如：</p>
+                            <ul>
+                                <li>原始文件：S2A_MSIL2A_20161002T052642_N0204_R105_T43SGU_20161002T052829.hdr</li>
+                                <li>PC方法蚀变文件：S2A_MSIL2A_20161002T052642_N0204_R105_T43SGU_20161002T052829_PC_alt.hdr</li>
+                                <li>Ratio方法蚀变文件：S2A_MSIL2A_20161002T052642_N0204_R105_T43SGU_20161002T052829_ratio_alt.hdr</li>
+                            </ul>
+                        </div>
+
+                        <!-- 已选择文件列表显示区域 -->
+                        <div class="mb-3">
+                            <h6>已选择的文件：</h6>
+                            <div id="fileList" class="list-group">
+                                <!-- 文件列表将在这里动态显示 -->
+                            </div>
+                        </div>
+
+                        <!-- 上传进度显示区域 -->
+                        <div id="uploadProgress" style="display: none;">
+                            <h6>上传进度：</h6>
+                            <div class="progress mb-2">
+                                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <div id="uploadStatus" class="small text-muted"></div>
+                        </div>
+
+                        <!-- 表单按钮组 -->
+                        <div class="text-end">
+                            <button type="button" class="btn btn-secondary me-2" onclick="clearFiles()">清空文件</button>
+                            <button type="submit" class="btn btn-primary" id="uploadButton">上传</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 已上传蚀变数据列表 -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <h3 class="mb-3">已上传的蚀变数据</h3>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>原始数据名称</th>
+                            <th>PC方法</th>
+                            <th>Ratio方法</th>
+                            <th>上传时间</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for file in envi_files %}
+                        <tr>
+                            <td>{{ file.name }}</td>
+                            <td>
+                                {% if file.has_pc_alteration %}
+                                <span class="text-success">✓ 已上传</span>
+                                {% else %}
+                                <span class="text-muted">未上传</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if file.has_ratio_alteration %}
+                                <span class="text-success">✓ 已上传</span>
+                                {% else %}
+                                <span class="text-muted">未上传</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ file.upload_date|date:"Y-m-d H:i" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript代码部分 -->
+<script>
+// 页面加载完成后执行
+document.addEventListener('DOMContentLoaded', function() {
+    // 获取DOM元素引用
+    const form = document.getElementById('alterationUploadForm');
+    const fileInput = form.querySelector('input[type="file"]');
+    const fileList = document.getElementById('fileList');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const progressBar = uploadProgress.querySelector('.progress-bar');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const uploadButton = document.getElementById('uploadButton');
+
+    // 当选择文件时更新文件列表显示
+    fileInput.addEventListener('change', function() {
+        fileList.innerHTML = '';
+        const files = Array.from(this.files);
+        
+        // 按文件名分组（.hdr和.img）
+        const fileGroups = {};
+        files.forEach(file => {
+            const baseName = file.name.replace(/\.(hdr|img)$/, '');
+            if (!fileGroups[baseName]) {
+                fileGroups[baseName] = {};
+            }
+            if (file.name.endsWith('.hdr')) {
+                fileGroups[baseName].hdr = file;
+            } else if (file.name.endsWith('.img')) {
+                fileGroups[baseName].img = file;
+            }
+        });
+
+        // 显示文件组列表
+        Object.entries(fileGroups).forEach(([baseName, group]) => {
+            const item = document.createElement('div');
+            item.className = 'list-group-item';
+            const complete = group.hdr && group.img;
+            item.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">${baseName}</h6>
+                        <small class="text-muted">
+                            HDR: ${group.hdr ? '✓' : '✗'} | 
+                            IMG: ${group.img ? '✓' : '✗'}
+                        </small>
+                    </div>
+                    <span class="badge ${complete ? 'bg-success' : 'bg-warning'}">
+                        ${complete ? '完整' : '不完整'}
+                    </span>
+                </div>
+            `;
+            fileList.appendChild(item);
+        });
+    });
+
+    // 处理表单提交
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // 准备上传数据
+        const formData = new FormData(form);
+        uploadProgress.style.display = 'block';
+        uploadButton.disabled = true;
+        
+        // 发送上传请求
+        fetch('{% url "geodata:alteration_upload" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 上传成功处理
+                uploadStatus.textContent = data.message;
+                progressBar.style.width = '100%';
+                progressBar.classList.add('bg-success');
+                // 1.5秒后刷新页面
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                throw new Error(data.error || '上传失败');
+            }
+        })
+        .catch(error => {
+            // 错误处理
+            uploadStatus.textContent = `错误：${error.message}`;
+            progressBar.classList.add('bg-danger');
+        })
+        .finally(() => {
+            uploadButton.disabled = false;
+        });
+
+        // 模拟上传进度
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += 5;
+            if (progress <= 90) {
+                progressBar.style.width = `${progress}%`;
+                uploadStatus.textContent = `正在上传... ${progress}%`;
+            } else {
+                clearInterval(interval);
+            }
+        }, 200);
+    });
+});
+
+// 清空已选择的文件
+function clearFiles() {
+    const fileInput = document.querySelector('input[type="file"]');
+    const fileList = document.getElementById('fileList');
+    fileInput.value = '';
+    fileList.innerHTML = '';
+}
+</script>
+{% endblock %} 

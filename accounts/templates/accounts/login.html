@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 遥感影像平台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            height: 100%;
+        }
+
+        .container {
+            height: 100%;
+            background-image: linear-gradient(to right, #999999, #330867);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .content-wrapper {
+            width: 1000px;
+            height: 600px;
+            background-color: rgba(255, 255, 255, 0.98);
+            border-radius: 20px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+            display: flex;
+            overflow: hidden;
+        }
+
+        .logo-section {
+            flex: 1;
+            padding: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(255, 255, 255, 0.98);
+            position: relative;
+        }
+
+        .logo-section img {
+            width: 450px;  /* 进一步放大logo */
+            opacity: 1;    /* 调整为完全不透明 */
+            position: relative;
+            z-index: 1;
+        }
+
+        .logo-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.98));
+            z-index: 0;
+        }
+
+        .login-section {
+            flex: 1;
+            padding: 60px;
+            background-color: rgba(255, 255, 255, 0.98);
+        }
+
+        .header {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 40px;
+            color: #333;
+        }
+
+        .input-item {
+            display: block;
+            width: 100%;
+            margin-bottom: 25px;
+            border: 0;
+            padding: 12px 0;
+            border-bottom: 2px solid #ddd;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .input-item:focus {
+            border-bottom-color: #330867;
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        .remember-me input {
+            margin-right: 8px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 25px;
+            background-image: linear-gradient(to right, #a6c1ee, #330867);
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .register-link {
+            text-align: center;
+            margin-top: 30px;
+            color: #666;
+        }
+
+        .register-link a {
+            color: #330867;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .register-link a:hover {
+            text-decoration: underline;
+        }
+
+        .alert {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="content-wrapper">
+            <div class="logo-section">
+                <img src="/static/images/logo.png" alt="遥感影像平台">
+            </div>
+            <div class="login-section">
+                <h2 class="header">欢迎登录</h2>
+                
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="text" name="username" placeholder="用户名" class="input-item" required>
+                    <input type="password" name="password" placeholder="密码" class="input-item" required>
+                    
+                    <div class="remember-me">
+                        <input type="checkbox" id="remember_me" name="remember_me">
+                        <label for="remember_me">记住我的登录状态</label>
+                    </div>
+
+                    <button type="submit" class="btn">登录</button>
+                </form>
+
+                <div class="register-link">
+                    还没有账号？ <a href="{% url 'accounts:register' %}">立即注册</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

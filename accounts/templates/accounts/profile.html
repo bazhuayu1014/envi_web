@@ -1,0 +1,58 @@
+{% extends 'geodata/base.html' %}
+
+{% block title %}个人资料 - 遥感影像平台{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">个人资料</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-sm-4">用户名：</div>
+                        <div class="col-sm-8">{{ user.username }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4">邮箱：</div>
+                        <div class="col-sm-8">{{ user.email|default:"未设置" }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4">注册时间：</div>
+                        <div class="col-sm-8">{{ user.date_joined|date:"Y-m-d H:i" }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4">上次登录：</div>
+                        <div class="col-sm-8">{{ user.last_login|date:"Y-m-d H:i" }}</div>
+                    </div>
+                    {% if profile.invitation_code %}
+                    <div class="row mb-3">
+                        <div class="col-sm-4">邀请码：</div>
+                        <div class="col-sm-8">{{ profile.invitation_code.code }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4">有效期至：</div>
+                        <div class="col-sm-8">
+                            {% if profile.invitation_code.expires_at %}
+                                {% if profile.invitation_code.expires_at > now %}
+                                    <span class="text-success">{{ profile.invitation_code.expires_at|date:"Y-m-d" }}</span>
+                                {% else %}
+                                    <span class="text-danger">已过期 ({{ profile.invitation_code.expires_at|date:"Y-m-d" }})</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">永久有效</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div class="text-center mt-4">
+                        <a href="{% url 'geodata:map' %}" class="btn btn-primary">返回地图</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,312 @@
+{% extends 'geodata/base.html' %}
+{% load static %}
+
+{% block content %}
+<!-- 主要内容容器 -->
+<div class="container mt-5">
+    <!-- 页面标题 -->
+    <h2>批量上传遥感影像</h2>
+    <!-- 上传卡片 -->
+    <div class="card">
+        <div class="card-body">
+            <!-- 上传说明提示框 -->
+            <div class="alert alert-info">
+                <h5>上传说明：</h5>
+                <ul>
+                    <li>支持同时选择多个文件上传</li>
+                    <li>请确保每个HDR文件都有对应的IMG文件</li>
+                    <li>文件名格式要求：基础名称必须相同，如 "image1.hdr" 和 "image1.img"</li>
+                    <li>支持拖拽文件到上传区域</li>
+                    <li>大文件上传可能需要较长时间，请耐心等待</li>
+                    <li>文件会按顺序逐个处理，处理完成后会显示结果</li>
+                </ul>
+            </div>
+
+            <!-- 文件上传表单 -->
+            <form id="uploadForm" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <!-- 文件上传区域 -->
+                <div class="form-group">
+                    <div class="upload-area p-4 text-center" id="dropZone">
+                        <input type="file" class="d-none" id="fileInput" name="files" multiple accept=".hdr,.img">
+                        <button type="button" class="btn btn-outline-primary mb-3" onclick="document.getElementById('fileInput').click()">
+                            选择文件
+                        </button>
+                        <p class="text-muted">或将文件拖放到此处</p>
+                    </div>
+                    <!-- 已选择文件列表 -->
+                    <div id="fileList" class="mt-3">
+                        <!-- 文件列表将在这里动态显示 -->
+                    </div>
+                </div>
+                <!-- 表单按钮组 -->
+                <div class="mt-3">
+                    <button type="submit" id="uploadButton" class="btn btn-primary">开始上传</button>
+                    <button type="button" class="btn btn-secondary ml-2" onclick="clearFiles()">清空文件</button>
+                </div>
+            </form>
+
+            <!-- 处理进度显示区域 -->
+            <div id="progressSection" class="mt-4" style="display: none;">
+                <h4>处理进度</h4>
+                <div class="progress mb-3">
+                    <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                </div>
+                <div id="processingResults"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 自定义样式 -->
+<style>
+    /* 上传区域样式 */
+    .upload-area {
+        border: 2px dashed #ccc;
+        border-radius: 4px;
+        padding: 20px;
+        text-align: center;
+        background-color: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+    /* 拖拽悬停效果 */
+    .upload-area.dragover {
+        border-color: #007bff;
+        background-color: rgba(0,123,255,0.1);
+    }
+    /* 文件项样式 */
+    .file-item {
+        display: flex;
+        align-items: center;
+        padding: 8px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        margin-bottom: 8px;
+        background-color: #fff;
+    }
+    /* 文件名样式 */
+    .file-item .file-name {
+        flex-grow: 1;
+    }
+    /* 文件大小样式 */
+    .file-item .file-size {
+        margin: 0 16px;
+        color: #6c757d;
+    }
+    /* 移除文件按钮样式 */
+    .file-item .remove-file {
+        color: #dc3545;
+        cursor: pointer;
+        padding: 0 8px;
+    }
+    /* 配对文件项样式 */
+    .file-item.paired {
+        border-color: #28a745;
+        background-color: rgba(40,167,69,0.1);
+    }
+    /* 处理结果项样式 */
+    .result-item {
+        padding: 10px;
+        margin-bottom: 8px;
+        border-radius: 4px;
+    }
+    /* 成功结果样式 */
+    .result-success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+    }
+    /* 错误结果样式 */
+    .result-error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c2c7;
+        color: #721c24;
+    }
+</style>
+
+<!-- JavaScript代码 -->
+<script>
+// 页面加载完成后执行
+document.addEventListener('DOMContentLoaded', function() {
+    // 获取DOM元素引用
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileList = document.getElementById('fileList');
+    const uploadForm = document.getElementById('uploadForm');
+    const selectedFiles = new Map(); // 存储已选择的文件
+
+    // 处理文件选择事件
+    fileInput.addEventListener('change', function(e) {
+        const files = Array.from(e.target.files);
+        addFiles(files);
+    });
+
+    // 处理拖拽事件
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        const files = Array.from(e.dataTransfer.files);
+        addFiles(files);
+    });
+
+    // 添加文件到列表
+    function addFiles(files) {
+        files.forEach(file => {
+            const fileName = file.name;
+            if (!selectedFiles.has(fileName)) {
+                selectedFiles.set(fileName, file);
+                addFileToList(file);
+            }
+        });
+        checkFilePairs();
+    }
+
+    // 将文件添加到显示列表
+    function addFileToList(file) {
+        const fileItem = document.createElement('div');
+        fileItem.className = 'file-item';
+        fileItem.innerHTML = `
+            <span class="file-name">${file.name}</span>
+            <span class="file-size">${formatFileSize(file.size)}</span>
+            <span class="remove-file" onclick="removeFile('${file.name}')">×</span>
+        `;
+        fileList.appendChild(fileItem);
+    }
+
+    // 格式化文件大小显示
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // 检查文件配对状态
+    function checkFilePairs() {
+        const fileItems = fileList.getElementsByClassName('file-item');
+        const pairs = new Map();
+
+        // 收集所有文件的基础名称
+        Array.from(fileItems).forEach(item => {
+            const fileName = item.querySelector('.file-name').textContent;
+            const baseName = fileName.substring(0, fileName.lastIndexOf('.'));
+            const ext = fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase();
+            
+            if (!pairs.has(baseName)) {
+                pairs.set(baseName, new Set());
+            }
+            pairs.get(baseName).add(ext);
+        });
+
+        // 检查配对并更新样式
+        Array.from(fileItems).forEach(item => {
+            const fileName = item.querySelector('.file-name').textContent;
+            const baseName = fileName.substring(0, fileName.lastIndexOf('.'));
+            if (pairs.has(baseName) && pairs.get(baseName).has('hdr') && pairs.get(baseName).has('img')) {
+                item.classList.add('paired');
+            } else {
+                item.classList.remove('paired');
+            }
+        });
+    }
+
+    // 移除文件
+    window.removeFile = function(fileName) {
+        selectedFiles.delete(fileName);
+        const fileItems = fileList.getElementsByClassName('file-item');
+        for (let item of fileItems) {
+            if (item.querySelector('.file-name').textContent === fileName) {
+                item.remove();
+                break;
+            }
+        }
+        checkFilePairs();
+    };
+
+    // 清空所有文件
+    window.clearFiles = function() {
+        selectedFiles.clear();
+        fileList.innerHTML = '';
+        fileInput.value = '';
+    };
+
+    // 处理表单提交
+    uploadForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // 验证是否选择了文件
+        if (selectedFiles.size === 0) {
+            alert('请选择要上传的文件');
+            return;
+        }
+
+        // 获取进度显示元素
+        const progressSection = document.getElementById('progressSection');
+        const processingResults = document.getElementById('processingResults');
+        const progressBar = document.querySelector('.progress-bar');
+        const uploadButton = document.getElementById('uploadButton');
+
+        // 显示进度区域并禁用上传按钮
+        progressSection.style.display = 'block';
+        uploadButton.disabled = true;
+        processingResults.innerHTML = '';
+        progressBar.style.width = '0%';
+
+        try {
+            // 准备上传数据
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            selectedFiles.forEach(file => formData.append('files', file));
+
+            // 发送上传请求
+            const response = await fetch('{% url "geodata:batch_upload" %}', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                // 更新进度条
+                progressBar.style.width = '100%';
+                
+                // 显示处理结果
+                if (data.results) {
+                    data.results.forEach(result => {
+                        const resultItem = document.createElement('div');
+                        resultItem.className = `result-item result-${result.status}`;
+                        resultItem.textContent = `${result.name}: ${result.message}`;
+                        processingResults.appendChild(resultItem);
+                    });
+                }
+
+                // 3秒后跳转到地图页面
+                setTimeout(() => {
+                    window.location.href = '{% url "geodata:map" %}';
+                }, 3000);
+            } else {
+                alert(data.error || '上传失败');
+                progressBar.style.width = '0%';
+            }
+        } catch (error) {
+            alert('上传出错：' + error.message);
+            console.error('上传错误:', error);
+            progressBar.style.width = '0%';
+        } finally {
+            uploadButton.disabled = false;
+        }
+    });
+});
+</script>
+{% endblock %} 

@@ -1,0 +1,73 @@
+<VRTDataset rasterXSize="10980" rasterYSize="10980">
+  <SRS dataAxisToSRSAxisMapping="1,2">PROJCS["WGS 84 / UTM zone 51N",GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]],PROJECTION["Transverse_Mercator"],PARAMETER["central_meridian",123],PARAMETER["latitude_of_origin",0],PARAMETER["scale_factor",0.9996],PARAMETER["false_easting",500000],PARAMETER["false_northing",0],UNIT["Meter",1],AXIS["Easting",EAST],AXIS["Northing",NORTH],AUTHORITY["EPSG","32651"]]</SRS>
+  <GeoTransform>  3.0000000000000000e+05,  1.0000000000000000e+01, -0.0000000000000000e+00,  5.5000200000000000e+06, -0.0000000000000000e+00, -1.0000000000000000e+01</GeoTransform>
+  <Metadata>
+    <MDI key="Band_1">Band 1 (B1) (443.000000 Nanometers)</MDI>
+    <MDI key="Band_10">Band 10 (B9) (945.000000 Nanometers)</MDI>
+    <MDI key="Band_11">Band 11 (B11) (1610.000000 Nanometers)</MDI>
+    <MDI key="Band_12">Band 12 (B12) (2190.000000 Nanometers)</MDI>
+    <MDI key="Band_2">Band 2 (B2) (490.000000 Nanometers)</MDI>
+    <MDI key="Band_3">Band 3 (B3) (560.000000 Nanometers)</MDI>
+    <MDI key="Band_4">Band 4 (B4) (665.000000 Nanometers)</MDI>
+    <MDI key="Band_5">Band 5 (B5) (705.000000 Nanometers)</MDI>
+    <MDI key="Band_6">Band 6 (B6) (740.000000 Nanometers)</MDI>
+    <MDI key="Band_7">Band 7 (B7) (783.000000 Nanometers)</MDI>
+    <MDI key="Band_8">Band 8 (B8) (842.000000 Nanometers)</MDI>
+    <MDI key="Band_9">Band 9 (B8A) (865.000000 Nanometers)</MDI>
+    <MDI key="wavelength_units">Nanometers</MDI>
+  </Metadata>
+  <Metadata domain="IMAGE_STRUCTURE">
+    <MDI key="INTERLEAVE">BAND</MDI>
+  </Metadata>
+  <VRTRasterBand dataType="Byte" band="1" blockXSize="10980" blockYSize="1">
+    <Metadata>
+      <MDI key="wavelength">665.000000</MDI>
+      <MDI key="wavelength_units">Nanometers</MDI>
+    </Metadata>
+    <Description>Band 4 (B4) (665.000000 Nanometers)</Description>
+    <Scale>0.0001</Scale>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">e:\graduation_bzy\data\S2A_MSIL2A_20190604T025551_N0500_R032_T51UUQ.img</SourceFilename>
+      <SourceBand>4</SourceBand>
+      <SourceProperties RasterXSize="10980" RasterYSize="10980" DataType="UInt16" BlockXSize="10980" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="10980" ySize="10980" />
+      <DstRect xOff="0" yOff="0" xSize="10980" ySize="10980" />
+      <ScaleOffset>-19.1292</ScaleOffset>
+      <ScaleRatio>0.0184823</ScaleRatio>
+    </ComplexSource>
+  </VRTRasterBand>
+  <VRTRasterBand dataType="Byte" band="2" blockXSize="10980" blockYSize="1">
+    <Metadata>
+      <MDI key="wavelength">560.000000</MDI>
+      <MDI key="wavelength_units">Nanometers</MDI>
+    </Metadata>
+    <Description>Band 3 (B3) (560.000000 Nanometers)</Description>
+    <Scale>0.0001</Scale>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">e:\graduation_bzy\data\S2A_MSIL2A_20190604T025551_N0500_R032_T51UUQ.img</SourceFilename>
+      <SourceBand>3</SourceBand>
+      <SourceProperties RasterXSize="10980" RasterYSize="10980" DataType="UInt16" BlockXSize="10980" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="10980" ySize="10980" />
+      <DstRect xOff="0" yOff="0" xSize="10980" ySize="10980" />
+      <ScaleOffset>-28.5432</ScaleOffset>
+      <ScaleRatio>0.0262346</ScaleRatio>
+    </ComplexSource>
+  </VRTRasterBand>
+  <VRTRasterBand dataType="Byte" band="3" blockXSize="10980" blockYSize="1">
+    <Metadata>
+      <MDI key="wavelength">490.000000</MDI>
+      <MDI key="wavelength_units">Nanometers</MDI>
+    </Metadata>
+    <Description>Band 2 (B2) (490.000000 Nanometers)</Description>
+    <Scale>0.0001</Scale>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">e:\graduation_bzy\data\S2A_MSIL2A_20190604T025551_N0500_R032_T51UUQ.img</SourceFilename>
+      <SourceBand>2</SourceBand>
+      <SourceProperties RasterXSize="10980" RasterYSize="10980" DataType="UInt16" BlockXSize="10980" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="10980" ySize="10980" />
+      <DstRect xOff="0" yOff="0" xSize="10980" ySize="10980" />
+      <ScaleOffset>-26.1024</ScaleOffset>
+      <ScaleRatio>0.025742</ScaleRatio>
+    </ComplexSource>
+  </VRTRasterBand>
+</VRTDataset>

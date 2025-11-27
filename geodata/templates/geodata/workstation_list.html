@@ -1,0 +1,125 @@
+{% extends 'geodata/base.html' %}
+
+<!-- 主要内容区域 -->
+{% block content %}
+<div class="container mt-4">
+    <!-- 页面标题和新建按钮 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>我的工作站</h2>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createWorkstationModal">
+            <i class="fas fa-plus"></i> 新建工作站
+        </button>
+    </div>
+
+    <!-- 工作站卡片列表 -->
+    <div class="row">
+        {% for workstation in workstations %}
+        <!-- 单个工作站卡片 -->
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <!-- 工作站基本信息 -->
+                    <h5 class="card-title">{{ workstation.name }}</h5>
+                    <p class="card-text">{{ workstation.description|default:"暂无描述" }}</p>
+                    <p class="card-text">
+                        <small class="text-muted">创建时间: {{ workstation.created_at|date:"Y-m-d H:i" }}</small>
+                    </p>
+                    <p class="card-text">
+                        <small class="text-muted">
+                            文件数量: {{ workstation.workstationfile_set.count }}
+                        </small>
+                    </p>
+                </div>
+                <!-- 工作站操作按钮 -->
+                <div class="card-footer">
+                    <a href="{% url 'geodata:workstation_detail' workstation.pk %}" class="btn btn-outline-primary">
+                        查看详情
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <!-- 无工作站提示 -->
+        <div class="col-12">
+            <div class="alert alert-info">
+                您还没有创建工作站，点击右上角的按钮创建一个新的工作站。
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- 创建工作站模态框 -->
+<div class="modal fade" id="createWorkstationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <!-- 模态框标题 -->
+            <div class="modal-header">
+                <h5 class="modal-title">创建新工作站</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <!-- 模态框表单 -->
+            <div class="modal-body">
+                <!-- 工作站名称输入 -->
+                <div class="mb-3">
+                    <label for="workstationName" class="form-label">工作站名称</label>
+                    <input type="text" class="form-control" id="workstationName" required>
+                </div>
+                <!-- 工作站描述输入 -->
+                <div class="mb-3">
+                    <label for="workstationDescription" class="form-label">描述（可选）</label>
+                    <textarea class="form-control" id="workstationDescription" rows="3"></textarea>
+                </div>
+            </div>
+            <!-- 模态框按钮 -->
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="createWorkstationBtn">创建</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+<!-- JavaScript代码 -->
+{% block extra_js %}
+<script>
+// 创建工作站按钮点击事件处理
+document.getElementById('createWorkstationBtn').addEventListener('click', function() {
+    // 获取表单数据
+    const name = document.getElementById('workstationName').value;
+    const description = document.getElementById('workstationDescription').value;
+    
+    // 验证工作站名称
+    if (!name) {
+        alert('请输入工作站名称');
+        return;
+    }
+    
+    // 发送创建请求
+    fetch('{% url "geodata:create_workstation" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            name: name,
+            description: description
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+        } else {
+            location.reload();  // 创建成功后刷新页面
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('创建工作站失败，请重试');
+    });
+});
+</script>
+{% endblock %} 

@@ -1,0 +1,247 @@
+{% extends 'geodata/base.html' %}
+
+<!-- 设置页面标题 -->
+{% block title %}ENVI文件下载{% endblock %}
+
+<!-- 主要内容区域 -->
+{% block content %}
+<div class="container">
+    <!-- 页面标题 -->
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">可下载的遥感数据</h2>
+        </div>
+    </div>
+
+    <!-- 卫星类型过滤器 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">
+                        <i class="fas fa-filter me-2"></i>数据类型筛选
+                    </h5>
+                    <!-- 过滤器按钮组 -->
+                    <div class="d-flex flex-wrap gap-3">
+                        <!-- Sentinel-2过滤器 -->
+                        <div class="satellite-filter-item">
+                            <input class="btn-check satellite-filter" type="checkbox" value="S2" id="sentinel2Check" checked>
+                            <label class="btn btn-outline-primary" for="sentinel2Check">
+                                <i class="fas fa-satellite me-2"></i>
+                                Sentinel-2 多光谱
+                                <span class="badge bg-primary ms-2 satellite-count" data-type="S2">0</span>
+                            </label>
+                        </div>
+                        <!-- GF5过滤器 -->
+                        <div class="satellite-filter-item">
+                            <input class="btn-check satellite-filter" type="checkbox" value="GF5" id="gf5Check" checked>
+                            <label class="btn btn-outline-danger" for="gf5Check">
+                                <i class="fas fa-satellite-dish me-2"></i>
+                                GF5 高光谱
+                                <span class="badge bg-danger ms-2 satellite-count" data-type="GF5">0</span>
+                            </label>
+                        </div>
+                        <!-- ASTER过滤器 -->
+                        <div class="satellite-filter-item">
+                            <input class="btn-check satellite-filter" type="checkbox" value="ASTER" id="asterCheck" checked>
+                            <label class="btn btn-outline-success" for="asterCheck">
+                                <i class="fas fa-broadcast-tower me-2"></i>
+                                ASTER 多光谱
+                                <span class="badge bg-success ms-2 satellite-count" data-type="ASTER">0</span>
+                            </label>
+                        </div>
+                        <!-- PRISMA过滤器 -->
+                        <div class="satellite-filter-item">
+                            <input class="btn-check satellite-filter" type="checkbox" value="PRISMA" id="prismaCheck" checked>
+                            <label class="btn btn-outline-info" for="prismaCheck">
+                                <i class="fas fa-satellite me-2"></i>
+                                PRISMA 高光谱
+                                <span class="badge bg-info ms-2 satellite-count" data-type="PRISMA">0</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 过滤器样式 -->
+    <style>
+    /* 过滤器项容器样式 */
+    .satellite-filter-item {
+        flex: 1;
+        min-width: 200px;
+        max-width: 300px;
+    }
+    /* 过滤器按钮样式 */
+    .satellite-filter-item .btn {
+        width: 100%;
+        text-align: left;
+        padding: 0.5rem 1rem;
+        border-width: 2px;
+        transition: all 0.3s ease;
+    }
+    /* 过滤器按钮悬停效果 */
+    .satellite-filter-item .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    /* 卫星数量标签样式 */
+    .satellite-count {
+        float: right;
+        margin-top: 3px;
+    }
+    </style>
+
+    <!-- 文件卡片列表 -->
+    <div class="row" id="fileCards">
+        {% for file in envi_files %}
+        <!-- 单个文件卡片 -->
+        <div class="col-md-6 col-lg-4 mb-4 file-card" data-satellite-type="{{ file.envi_data.sensor_type }}">
+            <div class="card h-100">
+                <div class="card-body">
+                    <!-- 文件基本信息 -->
+                    <h5 class="card-title">{{ file.name }}</h5>
+                    <p class="card-text">{{ file.description|default:"暂无描述" }}</p>
+                    <p class="card-text">
+                        <small class="text-muted">卫星类型: {{ file.envi_data.get_sensor_type_display }}</small>
+                    </p>
+                    <p class="card-text">
+                        <small class="text-muted">上传时间: {{ file.upload_date|date:"Y-m-d H:i" }}</small>
+                    </p>
+                    <p class="card-text">
+                        <small class="text-muted">文件大小: {{ file.file_size|filesizeformat }}</small>
+                    </p>
+                    <p class="card-text">
+                        <small class="text-muted">下载次数: {{ file.download_count }}</small>
+                    </p>
+                </div>
+                <!-- 文件操作区域 -->
+                <div class="card-footer bg-transparent">
+                    <!-- 数据类型选择 -->
+                    <div class="mb-2">
+                        <label class="form-label"><small>选择数据类型：</small></label>
+                        <select class="form-select form-select-sm" id="dataType_{{ file.id }}">
+                            <option value="original" selected>原始数据</option>
+                            {% if file.has_pc_alteration %}
+                            <option value="pc">蚀变指数-PC方法</option>
+                            {% endif %}
+                            {% if file.has_ratio_alteration %}
+                            <option value="ratio">蚀变指数-Ratio方法</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                    <!-- 下载按钮组 -->
+                    <div class="btn-group w-100">
+                        <button onclick="downloadHDR('{{ file.id }}')" class="btn btn-primary">下载HDR</button>
+                        <button onclick="downloadIMG('{{ file.id }}')" class="btn btn-success">下载IMG</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <!-- 无文件提示 -->
+        <div class="col-12">
+            <div class="alert alert-info">
+                暂无可下载的文件。您可以前往<a href="{% url 'geodata:upload' %}" class="alert-link">上传页面</a>添加新文件。
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- JavaScript代码 -->
+<script>
+// 下载HDR文件
+function downloadHDR(fileId) {
+    const dataType = document.getElementById(`dataType_${fileId}`).value;
+    window.open(`{% url 'geodata:download_file' 0 %}?type=hdr&data_type=${dataType}`.replace('0', fileId), '_blank');
+}
+
+// 下载IMG文件
+function downloadIMG(fileId) {
+    const dataType = document.getElementById(`dataType_${fileId}`).value;
+    window.open(`{% url 'geodata:download_file' 0 %}?type=img&data_type=${dataType}`.replace('0', fileId), '_blank');
+}
+
+// 文件过滤功能
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('.satellite-filter');
+    const fileCards = document.querySelectorAll('.file-card');
+
+    // 更新卫星类型计数
+    function updateSatelliteCounts() {
+        const counts = {
+            'S2': 0,
+            'GF5': 0,
+            'ASTER': 0,
+            'PRISMA': 0
+        };
+        
+        // 统计各类型文件数量
+        fileCards.forEach(card => {
+            const type = card.dataset.satelliteType;
+            if (type && type in counts) {
+                counts[type]++;
+            }
+        });
+
+        // 更新显示的计数
+        document.querySelectorAll('.satellite-count').forEach(badge => {
+            const type = badge.dataset.type;
+            badge.textContent = counts[type];
+        });
+    }
+
+    // 更新文件卡片可见性
+    function updateVisibility() {
+        const selectedTypes = Array.from(checkboxes)
+            .filter(cb => cb.checked)
+            .map(cb => cb.value);
+
+        let visibleCount = 0;
+        fileCards.forEach(card => {
+            const satelliteType = card.dataset.satelliteType;
+            if (selectedTypes.includes(satelliteType)) {
+                card.style.display = '';
+                visibleCount++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        // 检查是否有可见的卡片
+        const noDataMessage = document.getElementById('noDataMessage');
+        if (visibleCount === 0) {
+            if (!noDataMessage) {
+                const message = document.createElement('div');
+                message.id = 'noDataMessage';
+                message.className = 'col-12';
+                message.innerHTML = '<div class="alert alert-info">没有符合所选条件的数据</div>';
+                document.getElementById('fileCards').appendChild(message);
+            }
+        } else if (noDataMessage) {
+            noDataMessage.remove();
+        }
+    }
+
+    // 初始化计数
+    updateSatelliteCounts();
+
+    // 添加过滤器点击事件监听器
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateVisibility);
+    });
+
+    // 添加过滤器按钮动画效果
+    document.querySelectorAll('.satellite-filter-item .btn').forEach(btn => {
+        btn.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+        });
+        btn.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+});
+</script>
+{% endblock %}

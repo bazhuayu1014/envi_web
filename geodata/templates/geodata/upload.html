@@ -1,0 +1,217 @@
+<!-- 继承geodata应用的基础模板 -->
+{% extends 'geodata/base.html' %}
+<!-- 加载静态文件标签 -->
+{% load static %}
+
+<!-- 设置页面标题 -->
+{% block title %}单景遥感影像导入{% endblock %}
+
+<!-- 主要内容区域 -->
+{% block content %}
+<!-- 页面容器，使用Bootstrap栅格系统 -->
+<div class="container mt-4">
+    <!-- 居中对齐的行 -->
+    <div class="row justify-content-center">
+        <!-- 8列宽的主要内容区 -->
+        <div class="col-md-8">
+            <!-- 卡片组件 -->
+            <div class="card">
+                <!-- 卡片头部 - 使用蓝色主题 -->
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">单景遥感影像导入</h5>
+                </div>
+                <!-- 卡片主体 -->
+                <div class="card-body">
+                    <!-- 上传说明提示框 -->
+                    <div class="alert alert-info mb-4">
+                        <h6 class="alert-heading">上传说明：</h6>
+                        <ul class="mb-0">
+                            <li>请确保每个HDR文件都有对应的IMG文件</li>
+                            <li>文件名格式要求：基础名称必须项相同，如 "image1.hdr" 和 "image1.img"</li>
+                            <li>支持拖拽文件到上传区域</li>
+                            <li>大文件上传可能需要较长时间，请耐心等待</li>
+                            <li>文件上传完成后会自动在平台处理，您可以在此页面查看处理进度</li>
+                        </ul>
+                    </div>
+
+                    <!-- 文件上传表单 -->
+                    <form id="uploadForm" method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+                        <!-- CSRF令牌 -->
+                        {% csrf_token %}
+                        <!-- HDR文件上传字段 -->
+                        <div class="mb-4">
+                            <label class="form-label">HDR文件</label>
+                            <div class="input-group">
+                                <input type="file" class="form-control" name="hdr_file" accept=".hdr" required>
+                                <div class="invalid-feedback">请选择HDR文件</div>
+                            </div>
+                        </div>
+                        <!-- IMG文件上传字段 -->
+                        <div class="mb-4">
+                            <label class="form-label">IMG文件</label>
+                            <div class="input-group">
+                                <input type="file" class="form-control" name="img_file" accept=".img" required>
+                                <div class="invalid-feedback">请选择IMG文件</div>
+                            </div>
+                        </div>
+                        <!-- 描述信息文本域 -->
+                        <div class="mb-4">
+                            <label class="form-label">描述信息（可选）</label>
+                            <textarea class="form-control" name="description" rows="3" placeholder="请输入影像的描述信息..."></textarea>
+                        </div>
+
+                        <!-- 上传进度条组件 -->
+                        <div class="progress mb-3 d-none" id="uploadProgress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <!-- 上传状态提示 -->
+                        <div class="text-center mb-3 d-none" id="uploadStatus">
+                            <span class="text-muted">正在上传...</span>
+                        </div>
+
+                        <!-- 按钮组 -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary" id="submitBtn">开始上传</button>
+                            <button type="button" class="btn btn-secondary" onclick="window.location.href='/geodata'">返回地图</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript代码部分 -->
+<script>
+// 页面加载完成后执行
+document.addEventListener('DOMContentLoaded', function() {
+    // 获取DOM元素
+    const form = document.getElementById('uploadForm');
+    const progressBar = document.querySelector('#uploadProgress .progress-bar');
+    const progressDiv = document.getElementById('uploadProgress');
+    const statusDiv = document.getElementById('uploadStatus');
+    const submitBtn = document.getElementById('submitBtn');
+
+    // 表单提交处理
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        // 表单验证
+        if (!form.checkValidity()) {
+            e.stopPropagation();
+            form.classList.add('was-validated');
+            return;
+        }
+
+        // 检查HDR和IMG文件名是否匹配
+        const hdrFile = form.hdr_file.files[0];
+        const imgFile = form.img_file.files[0];
+        const hdrBaseName = hdrFile.name.replace('.hdr', '');
+        const imgBaseName = imgFile.name.replace('.img', '');
+
+        if (hdrBaseName !== imgBaseName) {
+            alert('HDR和IMG文件的基础名称必须相同！');
+            return;
+        }
+
+        // 准备上传数据
+        const formData = new FormData(form);
+        submitBtn.disabled = true;
+        progressDiv.classList.remove('d-none');
+        statusDiv.classList.remove('d-none');
+
+        // 创建AJAX请求
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', form.action || window.location.href, true);
+
+        // 上传进度监听器
+        xhr.upload.onprogress = function(e) {
+            if (e.lengthComputable) {
+                const percentComplete = (e.loaded / e.total) * 100;
+                progressBar.style.width = percentComplete + '%';
+                progressBar.textContent = Math.round(percentComplete) + '%';
+            }
+        };
+
+        // 请求完成处理
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                // 上传成功处理
+                progressBar.classList.remove('progress-bar-animated');
+                statusDiv.innerHTML = '<span class="text-success">上传成功！正在处理...</span>';
+                setTimeout(() => window.location.href = '/geodata', 1500);
+            } else {
+                // 上传失败处理
+                progressBar.classList.remove('progress-bar-animated');
+                progressBar.classList.add('bg-danger');
+                statusDiv.innerHTML = '<span class="text-danger">上传失败，请重试</span>';
+                submitBtn.disabled = false;
+            }
+        };
+
+        // 网络错误处理
+        xhr.onerror = function() {
+            progressBar.classList.remove('progress-bar-animated');
+            progressBar.classList.add('bg-danger');
+            statusDiv.innerHTML = '<span class="text-danger">网络错误，请重试</span>';
+            submitBtn.disabled = false;
+        };
+
+        // 发送请求
+        xhr.send(formData);
+    });
+
+    // 文件拖拽上传支持
+    const dropZones = document.querySelectorAll('.form-control[type="file"]');
+    dropZones.forEach(zone => {
+        // 拖拽悬停效果
+        zone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('border-primary');
+        });
+
+        // 拖拽离开效果
+        zone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.classList.remove('border-primary');
+        });
+
+        // 文件放置处理
+        zone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('border-primary');
+            const file = e.dataTransfer.files[0];
+            const fileInput = new DataTransfer();
+            fileInput.items.add(file);
+            this.files = fileInput.files;
+            
+            // 触发change事件以更新UI
+            const event = new Event('change', { bubbles: true });
+            this.dispatchEvent(event);
+        });
+    });
+});
+</script>
+
+<!-- 自定义样式 -->
+<style>
+/* 文件输入框样式 */
+.form-control[type="file"] {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+/* 文件输入框悬停效果 */
+.form-control[type="file"]:hover {
+    border-color: #0d6efd;
+}
+/* 进度条样式 */
+.progress {
+    height: 1.5rem;
+}
+/* 进度条动画效果 */
+.progress-bar {
+    transition: width 0.3s ease;
+    min-width: 2em;
+}
+</style>
+{% endblock %}

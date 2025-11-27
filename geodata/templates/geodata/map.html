@@ -1,0 +1,1870 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>遥感影像平台</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body { 
+            margin: 0; 
+            padding: 0; 
+        }
+        #map { 
+            height: calc(100vh - 56px - 28px) !important; /* 减去导航栏和状态栏的新高度 */
+            width: 100%;
+        }
+        .navbar {
+            background-color: #343a40 !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 0 1.5rem !important;
+            height: 56px;
+            min-height: 56px;
+        }
+        .navbar-brand {
+            color: #ffffff !important;
+            font-size: 1.75rem;
+            font-weight: 600;
+            padding: 0;
+            line-height: 56px;
+            height: 56px;
+            letter-spacing: 0.5px;
+        }
+        .nav-link {
+            color: rgba(255,255,255,0.85) !important;
+            font-size: 1.05rem;
+            padding: 0 1.5rem !important;
+            line-height: 53px;
+            height: 56px;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+        .nav-link:hover {
+            color: #ffffff !important;
+            background-color: rgba(255,255,255,0.1);
+            border-bottom: 3px solid rgba(255,255,255,0.3);
+        }
+        .nav-link.active {
+            color: #ffffff !important;
+            font-weight: 600;
+            border-bottom: 3px solid #007bff;
+            background-color: rgba(255,255,255,0.15);
+        }
+        .dropdown-menu {
+            background-color: #343a40;
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            margin-top: 0;
+            padding: 0.5rem 0;
+            min-width: 180px;
+        }
+        .dropdown-item {
+            color: rgba(255,255,255,0.85);
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .dropdown-item:hover {
+            background-color: rgba(255,255,255,0.1);
+            color: #ffffff;
+            transform: translateX(4px);
+        }
+        .measurement-result {
+            position: absolute;
+            top: 70px;
+            left: 50px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: none;
+            min-width: 200px;
+        }
+        .measurement-result.active {
+            display: block;
+        }
+        .measurement-result h6 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        .measurement-result div {
+            margin: 5px 0;
+            color: #34495e;
+        }
+        .measurement-buttons {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+        .measurement-button {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            background-color: #3498db;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .measurement-button:hover {
+            background-color: #2980b9;
+        }
+        .measurement-button.delete {
+            background-color: #e74c3c;
+        }
+        .measurement-button.delete:hover {
+            background-color: #c0392b;
+        }
+        .leaflet-control-layers {
+            border: none !important;
+            border-radius: 8px !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1) !important;
+        }
+        .leaflet-control-layers-list {
+            padding: 10px;
+            min-width: 200px;
+        }
+        .leaflet-control-layers-base label,
+        .leaflet-control-layers-overlays label {
+            margin-bottom: 5px;
+            padding: 3px 0;
+        }
+        .leaflet-control-layers-separator {
+            margin: 10px 0;
+        }
+        .leaflet-control-layers-toggle {
+            width: auto !important;
+            height: auto !important;
+            background-image: none !important;
+            padding: 6px 10px;
+            border-radius: 4px;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .leaflet-control-layers-toggle::after {
+            content: "图层";
+            font-size: 14px;
+            color: #2c3e50;
+        }
+        .layer-control {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            min-width: 200px;
+            display: none;  /* 默认隐藏图例 */
+            z-index: 1000;  /* 设置较低的z-index */
+            position: relative;  /* 确保z-index生效 */
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            color: #2c3e50;
+        }
+        .legend-color {
+            width: 24px;
+            height: 16px;
+            margin-right: 12px;
+            border-radius: 4px;
+            opacity: 0.9;
+        }
+        .legend-color.sentinel {
+            background-color: #00f0ff;
+        }
+        .legend-color.gf5 {
+            background-color: #ff6b6b;
+        }
+        .legend-color.aster {
+            background-color: #2ecc71;
+        }
+        .legend-color.prisma {
+            background-color: #9b59b6;
+        }
+        .legend-control {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+        .legend-control label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+        .legend-control input {
+            margin-right: 8px;
+        }
+        /* 状态栏样式 */
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #f8f9fa;
+            color: #495057;
+            height: 28px;
+            line-height: 28px;
+            padding: 0 15px;
+            font-size: 12px;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            z-index: 1000;
+            border-top: 1px solid #dee2e6;
+            box-shadow: 0 -1px 2px rgba(0,0,0,0.05);
+        }
+        .status-bar-item {
+            margin-left: 20px;
+            color: #495057;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+        }
+        .status-bar-item:first-child {
+            margin-left: 0;
+        }
+        .status-bar-item span:first-child {
+            color: #6c757d;
+            margin-right: 4px;
+        }
+        .status-bar-item span:nth-child(2) {
+            color: #adb5bd;
+            margin: 0 4px;
+            font-size: 10px;
+        }
+        /* 空间查询面板样式 */
+        .spatial-query-panel {
+            position: absolute;
+            top: 70px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1500;  /* 增加z-index确保在图例之上 */
+            display: none;
+            width: 350px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        /* 空间查询面板激活状态 */
+        .spatial-query-panel.active {
+            display: block;
+        }
+
+        /* 面板头部样式 */
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        /* 面板标题样式 */
+        .panel-header h6 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        /* 关闭按钮样式 */
+        .close-button {
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #95a5a6;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+
+        /* 关闭按钮悬停效果 */
+        .close-button:hover {
+            color: #7f8c8d;
+        }
+
+        /* 查询控件容器样式 */
+        .query-controls {
+            margin-bottom: 15px;
+        }
+
+        /* 卫星类型选择区域样式 */
+        .satellite-type {
+            margin-bottom: 15px;
+        }
+
+        /* 日期范围选择区域样式 */
+        .date-range {
+            margin-bottom: 15px;
+        }
+
+        /* 日期范围标签样式 */
+        .date-range label {
+            display: block;
+            margin-bottom: 5px;
+            color: #34495e;
+            font-size: 14px;
+        }
+
+        /* 日期输入框样式 */
+        .date-range input {
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        /* 日期范围分隔符样式 */
+        .date-range span {
+            display: block;
+            text-align: center;
+            margin: 5px 0;
+            color: #7f8c8d;
+        }
+
+        /* 按钮组容器样式 */
+        .buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* 查询和清除按钮基础样式 */
+        .query-button, .clear-button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        /* 查询按钮样式 */
+        .query-button {
+            background-color: #3498db;
+            color: white;
+        }
+
+        /* 查询按钮悬停效果 */
+        .query-button:hover {
+            background-color: #2980b9;
+        }
+
+        /* 清除按钮样式 */
+        .clear-button {
+            background-color: #95a5a6;
+            color: white;
+        }
+
+        /* 清除按钮悬停效果 */
+        .clear-button:hover {
+            background-color: #7f8c8d;
+        }
+
+        /* 查询结果容器样式 */
+        .query-results {
+            margin-top: 15px;
+        }
+
+        /* 结果项样式 */
+        .result-item {
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+
+        /* 结果项标题样式 */
+        .result-item h6 {
+            margin: 0 0 8px 0;
+            font-size: 15px;
+            color: #2c3e50;
+        }
+
+        /* 结果信息样式 */
+        .result-info {
+            font-size: 13px;
+            color: #7f8c8d;
+            margin: 4px 0;
+        }
+
+        /* 结果操作按钮容器样式 */
+        .result-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        /* 操作按钮基础样式 */
+        .action-button {
+            flex: 1;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        /* 非下载按钮样式 */
+        .action-button:not(.download) {
+            background-color: #2ecc71;
+            color: white;
+        }
+
+        /* 非下载按钮悬停效果 */
+        .action-button:not(.download):hover {
+            background-color: #27ae60;
+        }
+
+        /* 下载按钮样式 */
+        .action-button.download {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        /* 下载按钮悬停效果 */
+        .action-button.download:hover {
+            background-color: #c0392b;
+        }
+
+        /* 无结果提示样式 */
+        .no-results {
+            text-align: center;
+            padding: 20px;
+            color: #7f8c8d;
+            font-size: 14px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        /* 缩略图弹窗样式 */
+        .thumbnail-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+        }
+
+        /* 缩略图内容容器样式 */
+        .thumbnail-content {
+            position: relative;
+            margin: auto;
+            padding: 20px;
+            width: 80%;
+            max-width: 700px;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        /* 缩略图关闭按钮样式 */
+        .thumbnail-close {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #666;
+            cursor: pointer;
+        }
+
+        /* 缩略图图片样式 */
+        .thumbnail-image {
+            width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+
+        /* 缩略图标题样式 */
+        .thumbnail-title {
+            margin-bottom: 15px;
+            color: #2c3e50;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        /* 按钮组样式 */
+        .btn-group {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+        }
+        /* 按钮组中的操作按钮样式 */
+        .btn-group .action-button {
+            flex: 1;
+        }
+        /* 小型下拉选择框样式 */
+        .form-select-sm {
+            margin-bottom: 8px;
+        }
+        /* 结果操作按钮组样式 */
+        .result-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        /* 结果操作按钮间距 */
+        .result-actions > button {
+            margin-bottom: 0;
+        }
+        /* 搜索框组件样式 */
+        .input-group {
+            height: 38px;
+            margin: 9px 0;
+        }
+        #locationSearch {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 0.95rem;
+            padding: 0.5rem 1rem;
+            transition: all 0.2s ease;
+        }
+        #locationSearch::placeholder {
+            color: rgba(255,255,255,0.6);
+        }
+        #locationSearch:focus {
+            background-color: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: none;
+        }
+        .btn-outline-light {
+            border-color: rgba(255, 255, 255, 0.3);
+            padding: 0.5rem 0.75rem;
+            transition: all 0.2s ease;
+        }
+        .btn-outline-light:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-1px);
+        }
+        /* 自定义工具提示样式 */
+        .tooltip-inner {
+            max-width: 300px;
+            text-align: left;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.8);
+            font-size: 14px;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <!-- 网站品牌标志 -->
+            <a class="navbar-brand" href="#">遥感影像平台</a>
+            <!-- 移动端折叠按钮 -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <!-- 导航栏内容 -->
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <!-- 位置搜索框 -->
+                <div class="d-flex align-items-center mx-3 flex-grow-1" style="max-width: 500px;">
+                    <div class="input-group">
+                        <!-- 经纬度输入框 -->
+                        <input type="text" id="locationSearch" class="form-control" placeholder="输入经纬度 (例如: 35.123, 105.456)">
+                        <!-- 帮助按钮 -->
+                        <button class="btn btn-outline-light" type="button" id="searchHelp" data-bs-toggle="tooltip" data-bs-placement="bottom" title="输入格式：纬度,经度 (例如: 35.123, 105.456)&#10;支持以下格式：&#10;- 十进制度数：35.123, 105.456&#10;- 度分秒：35°30'25&quot;N, 105°27'22&quot;E">
+                            <i class="fas fa-question-circle"></i>
+                        </button>
+                        <!-- 搜索按钮 -->
+                        <button class="btn btn-outline-light" type="button" id="searchLocation">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+                <!-- 主导航菜单 -->
+                <ul class="navbar-nav">
+                    <!-- 图像文件导入下拉菜单 -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="importDropdown" role="button" data-bs-toggle="dropdown">
+                            图像文件导入
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="/geodata/upload/">单景导入</a></li>
+                            <li><a class="dropdown-item" href="/geodata/batch-upload/">批量导入</a></li>
+                        </ul>
+                    </li>
+                    <!-- 工具下拉菜单 -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="toolsDropdown" role="button" data-bs-toggle="dropdown">
+                            工具
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" id="startMeasure">测量</a></li>
+                            <li><a class="dropdown-item" href="#" id="startSpatialQuery">空间查询下载</a></li>
+                        </ul>
+                    </li>
+                    <!-- 全部图像链接 -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="/geodata/file_list/">全部图像</a>
+                    </li>
+                </ul>
+                <!-- 用户菜单 -->
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                            {{ request.user.username }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{% url 'accounts:profile' %}">个人资料</a></li>
+                            <li><a class="dropdown-item" href="{% url 'geodata:workstation_list' %}">我的工作站</a></li>
+                            {% if request.user.is_staff %}
+                            <li><a class="dropdown-item" href="{% url 'admin:index' %}">管理后台</a></li>
+                            {% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'accounts:logout' %}">退出登录</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 空间查询面板 -->
+    <div class="spatial-query-panel" id="spatialQueryPanel">
+        <!-- 面板头部 -->
+        <div class="panel-header">
+            <h6>空间查询</h6>
+            <button class="close-button" id="closeSpatialQuery">&times;</button>
+        </div>
+        <!-- 查询控件区域 -->
+        <div class="query-controls">
+            <!-- 卫星类型选择 -->
+            <div class="satellite-type mb-3">
+                <label>卫星类型：</label>
+                <!-- Sentinel-2选项 -->
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="S2" id="sentinel2Check" checked>
+                    <label class="form-check-label" for="sentinel2Check">
+                        Sentinel-2 多光谱
+                    </label>
+                </div>
+                <!-- GF5选项 -->
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="GF5" id="gf5Check" checked>
+                    <label class="form-check-label" for="gf5Check">
+                        GF5 高光谱
+                    </label>
+                </div>
+                <!-- ASTER选项 -->
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="ASTER" id="asterCheck" checked>
+                    <label class="form-check-label" for="asterCheck">
+                        ASTER 多光谱
+                    </label>
+                </div>
+                <!-- PRISMA选项 -->
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="PRISMA" id="prismaCheck" checked>
+                    <label class="form-check-label" for="prismaCheck">
+                        PRISMA 高光谱
+                    </label>
+                </div>
+            </div>
+            <!-- 时间范围选择 -->
+            <div class="date-range">
+                <label>时间范围：</label>
+                <input type="date" id="startDate" class="form-control">
+                <span>至</span>
+                <input type="date" id="endDate" class="form-control">
+            </div>
+            <!-- 操作按钮 -->
+            <div class="buttons">
+                <button class="query-button" id="executeQuery">查询</button>
+                <button class="clear-button" id="clearQuery">清除</button>
+            </div>
+        </div>
+        <!-- 查询结果显示区域 -->
+        <div class="query-results" id="queryResults">
+            <!-- 查询结果将在这里动态显示 -->
+        </div>
+    </div>
+
+    <!-- 测量结果面板 -->
+    <div class="measurement-result" id="measurementResult">
+        <h6>测量结果</h6>
+        <div>周长: <span id="perimeter">0</span> 公里</div>
+        <div>面积: <span id="area">0</span> 平方公里</div>
+        <div class="measurement-buttons">
+            <button class="measurement-button" id="newMeasure">重新测量</button>
+            <button class="measurement-button delete" id="deleteMeasure">删除</button>
+        </div>
+    </div>
+
+    <!-- 地图容器 -->
+    <div id="map"></div>
+
+    <!-- 状态栏 -->
+    <div class="status-bar">
+        <!-- 经纬度显示 -->
+        <div class="status-bar-item">
+            <span>经纬度</span>
+            <span>|</span>
+            <span id="mouse-position">0°N, 0°E</span>
+        </div>
+        <!-- 比例尺显示 -->
+        <div class="status-bar-item">
+            <span>比例尺</span>
+            <span>|</span>
+            <span id="map-scale">0 公里</span>
+        </div>
+        <!-- 相机高度显示 -->
+        <div class="status-bar-item">
+            <span>相机</span>
+            <span>|</span>
+            <span id="camera-height">0 公里</span>
+        </div>
+    </div>
+
+    <!-- 缩略图弹窗 -->
+    <div id="thumbnailModal" class="thumbnail-modal">
+        <div class="thumbnail-content">
+            <span class="thumbnail-close">&times;</span>
+            <h5 class="thumbnail-title"></h5>
+            <img class="thumbnail-image" src="" alt="缩略图">
+        </div>
+    </div>
+
+    <!-- JavaScript依赖 -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- 地图初始化脚本 -->
+    <script>
+        // 初始化地图，默认定位中国中部
+        const map = L.map('map', {
+            zoomControl: false,  // 禁用默认缩放控件
+            minZoom: 1,         // 最小缩放级别
+            maxZoom: 14,        // 最大缩放级别
+        }).setView([35.0, 105.0], 4);  // 设置初始视图
+
+        // 配置基础地图图层
+        const baseLayers = {
+            // 高德街道地图
+            "街道地图": L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+                attribution: '© 高德地图',
+                subdomains: ["1", "2", "3", "4"]
+            }),
+            // ESRI卫星影像
+            "卫星影像": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '© ESRI',
+                maxNativeZoom: 17
+            }),
+            // CartoDB简洁地图
+            "简洁地图": L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© CartoDB',
+                subdomains: 'abcd'
+            }),
+            // 空白底图
+            "无底图": L.tileLayer('')
+        };
+
+        // 创建遥感数据图层组
+        const enviLayerGroup = L.layerGroup();          // 通用图层组
+        const sentinel2LayerGroup = L.layerGroup();     // Sentinel-2图层组
+        const gf5LayerGroup = L.layerGroup();          // GF5图层组
+        const asterLayerGroup = L.layerGroup();        // ASTER图层组
+        const prismaLayerGroup = L.layerGroup();       // PRISMA图层组
+        let boundaryLayers = [];                       // 边界图层数组
+
+        // 配置叠加图层
+        const overlayLayers = {
+            "Sentinel-2 多光谱": sentinel2LayerGroup,
+            "GF5 高光谱": gf5LayerGroup,
+            "ASTER 多光谱": asterLayerGroup,
+            "PRISMA 高光谱": prismaLayerGroup
+        };
+
+        // 添加图层控制器
+        const layerControl = L.control.layers(baseLayers, overlayLayers, {
+            position: 'bottomleft',
+            collapsed: true
+        }).addTo(map);
+
+        // 添加默认底图
+        baseLayers["街道地图"].addTo(map);
+
+        // 配置测量工具
+        const drawControl = new L.Control.Draw({
+            draw: {
+                marker: false,            // 禁用标记点
+                circlemarker: false,      // 禁用圆形标记
+                circle: false,            // 禁用圆形
+                rectangle: false,         // 禁用矩形
+                polyline: {               // 配置线段测量
+                    shapeOptions: {
+                        color: '#f1c40f', // 线段颜色
+                        weight: 3         // 线段宽度
+                    },
+                    metric: true,         // 使用公制单位
+                    showLength: true      // 显示长度
+                },
+                polygon: {                // 配置多边形测量
+                    shapeOptions: {
+                        color: '#f1c40f', // 多边形边框颜色
+                        weight: 3         // 边框宽度
+                    },
+                    metric: true,         // 使用公制单位
+                    showArea: true        // 显示面积
+                }
+            },
+            edit: {
+                featureGroup: new L.FeatureGroup(),  // 可编辑图层组
+                remove: true                         // 允许删除
+            }
+        });
+
+        // 测量工具状态变量
+        let measurementMode = false;                  // 测量模式状态
+        let drawnItems = new L.FeatureGroup();       // 绘制的图形图层组
+        map.addLayer(drawnItems);                    // 将绘制图层添加到地图
+
+        // 测量工具事件监听器
+        // 开始测量按钮点击事件
+        document.getElementById('startMeasure').addEventListener('click', function() {
+            startNewMeasurement();
+        });
+
+        // 重新测量按钮点击事件
+        document.getElementById('newMeasure').addEventListener('click', function() {
+            startNewMeasurement();
+        });
+
+        // 删除测量按钮点击事件
+        document.getElementById('deleteMeasure').addEventListener('click', function() {
+            drawnItems.clearLayers();                // 清除所有绘制的图形
+            document.getElementById('perimeter').textContent = '0';  // 重置周长显示
+            document.getElementById('area').textContent = '0';       // 重置面积显示
+            map.removeControl(drawControl);           // 移除绘图控件
+            measurementMode = false;                  // 关闭测量模式
+            document.getElementById('measurementResult').classList.remove('active');  // 隐藏结果面板
+        });
+
+        // 开始新的测量
+        function startNewMeasurement() {
+            drawnItems.clearLayers();                // 清除现有的测量图形
+            if (!measurementMode) {
+                map.addControl(drawControl);          // 添加绘图控件
+                measurementMode = true;               // 开启测量模式
+                document.getElementById('measurementResult').classList.add('active');  // 显示结果面板
+            }
+        }
+
+        // 计算距离（单位：公里）
+        function calculateDistance(latlngs) {
+            let totalDistance = 0;
+            for (let i = 1; i < latlngs.length; i++) {
+                totalDistance += map.distance(latlngs[i-1], latlngs[i]);
+            }
+            return totalDistance / 1000; // 转换为公里
+        }
+
+        // 计算面积（单位：平方公里）
+        function calculateArea(latlngs) {
+            return L.GeometryUtil.geodesicArea(latlngs) / 1000000; // 转换为平方公里
+        }
+
+        // 监听绘图完成事件
+        map.on('draw:created', function(e) {
+            drawnItems.clearLayers();                // 清除之前的图形
+            const layer = e.layer;
+            drawnItems.addLayer(layer);              // 添加新绘制的图形
+
+            // 根据图形类型计算并显示结果
+            if (e.layerType === 'polygon') {         // 多边形测量
+                const latlngs = layer.getLatLngs()[0];
+                const perimeter = calculateDistance(latlngs);
+                const area = calculateArea(latlngs);
+                
+                document.getElementById('perimeter').textContent = perimeter.toFixed(2);
+                document.getElementById('area').textContent = area.toFixed(2);
+            } else if (e.layerType === 'polyline') { // 线段测量
+                const distance = calculateDistance(layer.getLatLngs());
+                document.getElementById('perimeter').textContent = distance.toFixed(2);
+                document.getElementById('area').textContent = '0';
+            }
+        });
+
+        // 创建图例控件
+        const legend = L.control({ position: 'bottomright' });
+        legend.onAdd = () => {
+            const div = L.DomUtil.create('div', 'layer-control');
+            // 设置图例HTML内容
+            div.innerHTML = `
+                <h4>图例</h4>
+                <div class="legend-item">
+                    <span class="legend-color sentinel"></span> Sentinel-2 多光谱影像
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color gf5"></span> GF5 高光谱影像
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color aster"></span> ASTER 多光谱影像
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color prisma"></span> PRISMA 高光谱影像
+                </div>
+                <div class="legend-control">
+                    <label>
+                        <input type="checkbox" id="showFill" checked>
+                        显示边界填充
+                    </label>
+                </div>
+            `;
+
+            // 添加边界填充控制事件
+            setTimeout(() => {
+                const checkbox = document.getElementById('showFill');
+                if (checkbox) {
+                    checkbox.addEventListener('change', function() {
+                        boundaryLayers.forEach(layer => {
+                            const options = layer.options;
+                            if (this.checked) {
+                                layer.setStyle({ fillOpacity: 0.1 });  // 显示填充
+                            } else {
+                                layer.setStyle({ fillOpacity: 0 });    // 隐藏填充
+                            }
+                        });
+                    });
+                }
+            }, 0);
+
+            return div;
+        };
+        legend.addTo(map);
+
+        // 从API加载遥感数据
+        fetch('/geodata/api/envi-data/')
+            .then(response => response.json())
+            .then(data => {
+                console.log("原始数据:", data);
+                
+                // 处理每个遥感影像数据
+                data.features.forEach(item => {
+                    // 修正几何坐标（转换经纬度顺序）
+                    const correctedGeometry = {
+                        type: item.geometry.type,
+                        coordinates: item.geometry.coordinates.map(ring => 
+                            ring.map(coord => [coord[1], coord[0]])
+                        )
+                    };
+                    
+                    console.log("转换后几何数据:", correctedGeometry);
+
+                    // 根据传感器类型设置样式和图层
+                    let borderColor;
+                    let sensorTypeDisplay;
+                    let targetLayerGroup;
+
+                    switch(item.properties.sensor_type) {
+                        case 'GF5':
+                            borderColor = '#ff6b6b';
+                            sensorTypeDisplay = 'GF5 高光谱';
+                            targetLayerGroup = gf5LayerGroup;
+                            break;
+                        case 'ASTER':
+                            borderColor = '#2ecc71';
+                            sensorTypeDisplay = 'ASTER 多光谱';
+                            targetLayerGroup = asterLayerGroup;
+                            break;
+                        case 'PRISMA':
+                            borderColor = '#9b59b6';
+                            sensorTypeDisplay = 'PRISMA 高光谱';
+                            targetLayerGroup = prismaLayerGroup;
+                            break;
+                        default:
+                            borderColor = '#00f0ff';
+                            sensorTypeDisplay = 'Sentinel-2 多光谱';
+                            targetLayerGroup = sentinel2LayerGroup;
+                    }
+
+                    // 创建瓦片图层
+                    const tileLayer = L.tileLayer(item.properties.tile_url, {
+                        minZoom: 1,
+                        maxZoom: 14,
+                        attribution: `${sensorTypeDisplay} Data`,
+                        tms: false,
+                        bounds: L.geoJSON(correctedGeometry).getBounds(),
+                        errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAFgAJ/E58kCgAAAABJRU5ErkJggg=='
+                    });
+
+                    // 创建边界图层
+                    const bounds = L.geoJSON(correctedGeometry, {
+                        style: {
+                            color: borderColor,
+                            weight: 3,
+                            opacity: 0.9,
+                            fillOpacity: 0.1
+                        }
+                    });
+
+                    // 设置边界图层的弹出信息
+                    bounds.bindPopup(`
+                        <div style="min-width: 200px;">
+                            <h6 style="margin: 0 0 8px 0; font-weight: bold;">${item.properties.name}</h6>
+                            <div style="margin: 4px 0;">传感器类型: ${sensorTypeDisplay}</div>
+                            <div style="margin: 4px 0;">分辨率: ${formatResolution(item.properties.resolution)}m</div>
+                            <div style="margin: 4px 0;">获取时间: ${item.properties.acquisition_date}</div>
+                            ${item.properties.wavelength_info ? 
+                                `<div style="margin: 4px 0;">波段数: ${
+                                    JSON.parse(item.properties.wavelength_info).wavelengths.length
+                                }</div>` : ''}
+                            <div style="margin: 4px 0;">坐标系: ${item.properties.coordinate_system || 'WGS84'}</div>
+                        </div>
+                    `);
+
+                    // 将图层添加到对应的图层组
+                    targetLayerGroup.addLayer(tileLayer);
+                    targetLayerGroup.addLayer(bounds);
+                    boundaryLayers.push(bounds);             // 记录边界图层引用
+                });
+
+                // 默认添加所有图层组到地图
+                sentinel2LayerGroup.addTo(map);
+                gf5LayerGroup.addTo(map);
+                asterLayerGroup.addTo(map);
+                prismaLayerGroup.addTo(map);
+            })
+            .catch(error => {
+                console.error('数据加载失败:', error);
+                alert('遥感数据加载失败，请检查服务器连接和数据完整性');
+            });
+
+        // 缩放控件
+        L.control.zoom({ position: 'topleft' }).addTo(map);
+
+        // 监听图层变化事件
+        map.on('overlayadd', function(e) {
+            document.querySelector('.layer-control').style.display = 'block';
+        });
+
+        map.on('overlayremove', function(e) {
+            // 只有当所有遥感图层都被移除时，才隐藏图例
+            const hasVisibleLayers = 
+                map.hasLayer(sentinel2LayerGroup) ||
+                map.hasLayer(gf5LayerGroup) ||
+                map.hasLayer(asterLayerGroup) ||
+                map.hasLayer(prismaLayerGroup);
+            
+            if (!hasVisibleLayers) {
+                document.querySelector('.layer-control').style.display = 'none';
+            }
+        });
+
+        // 添加鼠标位置更新功能
+        map.on('mousemove', function(e) {
+            const lat = e.latlng.lat.toFixed(6);
+            const lng = e.latlng.lng.toFixed(6);
+            document.getElementById('mouse-position').textContent = 
+                `${Math.abs(lat)}°${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lng)}°${lng >= 0 ? 'E' : 'W'}`;
+        });
+
+        // 更新比例尺和相机高度
+        function updateMapInfo() {
+            // 计算比例尺
+            const center = map.getCenter();
+            const centerPoint = map.project(center);
+            const targetPoint = centerPoint.add([100, 0]);
+            const targetLatLng = map.unproject(targetPoint);
+            const distance = center.distanceTo(targetLatLng);
+            const scale = Math.round(distance * 10) / 10;
+            
+            // 计算相机高度（基于缩放级别）
+            const zoom = map.getZoom();
+            const cameraHeight = Math.round(40075016.686 * Math.cos(center.lat * Math.PI/180) / Math.pow(2, zoom+8));
+            
+            // 更新显示
+            document.getElementById('map-scale').textContent = scale >= 1000 ? 
+                `${Math.round(scale/100)/10} 千公里` : 
+                `${Math.round(scale*10)/10} 公里`;
+            document.getElementById('camera-height').textContent = cameraHeight >= 1000 ? 
+                `${Math.round(cameraHeight/100)/10} 千公里` : 
+                `${Math.round(cameraHeight*10)/10} 公里`;
+        }
+
+        // 监听地图移动和缩放事件
+        map.on('move', updateMapInfo);
+        map.on('zoom', updateMapInfo);
+        
+        // 初始更新地图信息
+        updateMapInfo();
+
+        // 空间查询相关代码
+        let queryMode = false;
+        let queryDrawControl;
+        let queryLayer = new L.FeatureGroup();
+        map.addLayer(queryLayer);
+
+        // 初始化查询绘图控件
+        queryDrawControl = new L.Control.Draw({
+            draw: {
+                marker: false,
+                circlemarker: false,
+                circle: false,
+                rectangle: true,
+                polygon: true,
+                polyline: true
+            },
+            edit: {
+                featureGroup: queryLayer,
+                remove: true
+            }
+        });
+
+        // 空间查询事件处理
+        document.getElementById('startSpatialQuery').addEventListener('click', function() {
+            if (!queryMode) {
+                map.addControl(queryDrawControl);
+                queryMode = true;
+                document.getElementById('spatialQueryPanel').classList.add('active');
+            }
+        });
+
+        document.getElementById('closeSpatialQuery').addEventListener('click', function() {
+            document.getElementById('spatialQueryPanel').classList.remove('active');
+            map.removeControl(queryDrawControl);
+            queryMode = false;
+            queryLayer.clearLayers();
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+            
+            // 重新加载所有遥感影像
+            reloadAllImages();
+        });
+
+        document.getElementById('clearQuery').addEventListener('click', function() {
+            queryLayer.clearLayers();
+            document.getElementById('queryResults').innerHTML = '';
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+            
+            // 重新加载所有遥感影像
+            reloadAllImages();
+        });
+
+        // 处理绘图完成事件
+        map.on('draw:created', function(e) {
+            if (queryMode) {
+                queryLayer.clearLayers();
+                const layer = e.layer;
+                queryLayer.addLayer(layer);
+            }
+        });
+
+        // 执行查询
+        document.getElementById('executeQuery').addEventListener('click', function() {
+            if (queryLayer.getLayers().length === 0) {
+                alert('请先绘制查询区域');
+                return;
+            }
+
+            // 获取选中的卫星类型
+            const selectedTypes = [];
+            if (document.getElementById('sentinel2Check').checked) selectedTypes.push('S2');
+            if (document.getElementById('gf5Check').checked) selectedTypes.push('GF5');
+            if (document.getElementById('asterCheck').checked) selectedTypes.push('ASTER');
+            if (document.getElementById('prismaCheck').checked) selectedTypes.push('PRISMA');
+
+            if (selectedTypes.length === 0) {
+                alert('请至少选择一种卫星类型');
+                return;
+            }
+
+            const startDateInput = document.getElementById('startDate');
+            const endDateInput = document.getElementById('endDate');
+            
+            // 获取并验证日期
+            let startDate = startDateInput.value;
+            let endDate = endDateInput.value;
+            
+            // 获取绘制的图形
+            const drawnLayer = queryLayer.getLayers()[0];
+            let geometry;
+            
+            // 根据图层类型获取几何对象
+            if (drawnLayer instanceof L.Polygon || drawnLayer instanceof L.Rectangle) {
+                const bounds = drawnLayer.getBounds();
+                const coords = [
+                    [bounds.getWest(), bounds.getSouth()],
+                    [bounds.getWest(), bounds.getNorth()],
+                    [bounds.getEast(), bounds.getNorth()],
+                    [bounds.getEast(), bounds.getSouth()],
+                    [bounds.getWest(), bounds.getSouth()]
+                ];
+                
+                geometry = {
+                    type: 'Polygon',
+                    coordinates: [coords]
+                };
+            } else if (drawnLayer instanceof L.Polyline) {
+                const coords = drawnLayer.getLatLngs().map(latlng => [latlng.lng, latlng.lat]);
+                geometry = {
+                    type: 'LineString',
+                    coordinates: coords
+                };
+            }
+            
+            if (!geometry) {
+                alert('无效的查询区域');
+                return;
+            }
+            
+            const queryParams = {
+                geometry: geometry,
+                startDate: startDate || null,
+                endDate: endDate || null,
+                sensorTypes: selectedTypes
+            };
+            
+            console.log('发送查询请求:', JSON.stringify(queryParams, null, 2));
+
+            // 显示加载提示
+            document.getElementById('queryResults').innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"></div><div class="mt-2">正在查询中...</div></div>';
+            
+            // 发送查询请求
+            fetch('/geodata/api/spatial-query/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(queryParams)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        try {
+                            const data = JSON.parse(text);
+                            throw new Error(data.error || `HTTP error! status: ${response.status}`);
+                        } catch (e) {
+                            throw new Error(`HTTP error! status: ${response.status}, response: ${text}`);
+                        }
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('查询响应:', data);
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // 清除地图上现有的所有遥感图层
+                sentinel2LayerGroup.clearLayers();
+                gf5LayerGroup.clearLayers();
+                asterLayerGroup.clearLayers();
+                prismaLayerGroup.clearLayers();
+                
+                // 处理查询结果数据
+                if (data.results && data.results.length > 0) {
+                    data.results.forEach(result => {
+                        // 获取并修正边界几何数据（转换坐标顺序）
+                        if (result.bounds) {
+                            const correctedGeometry = {
+                                type: result.bounds.type,
+                                coordinates: result.bounds.coordinates.map(ring => 
+                                    ring.map(coord => [coord[1], coord[0]])  // 交换经纬度顺序
+                                )
+                            };
+
+                            // 获取每个影像的详细信息
+                            fetch(`/geodata/api/image-info/${result.id}/`)
+                                .then(response => response.json())
+                                .then(imageInfo => {
+                                    let targetLayerGroup;
+                                    let borderColor;
+                                    let sensorTypeDisplay;
+
+                                    // 根据传感器类型设置显示参数
+                                    switch(result.sensor_type) {
+                                        case 'GF5':
+                                            targetLayerGroup = gf5LayerGroup;
+                                            borderColor = '#ff6b6b';
+                                            sensorTypeDisplay = 'GF5 高光谱';
+                                            break;
+                                        case 'ASTER':
+                                            targetLayerGroup = asterLayerGroup;
+                                            borderColor = '#2ecc71';
+                                            sensorTypeDisplay = 'ASTER 多光谱';
+                                            break;
+                                        case 'PRISMA':
+                                            targetLayerGroup = prismaLayerGroup;
+                                            borderColor = '#9b59b6';
+                                            sensorTypeDisplay = 'PRISMA 高光谱';
+                                            break;
+                                        default:
+                                            targetLayerGroup = sentinel2LayerGroup;
+                                            borderColor = '#00f0ff';
+                                            sensorTypeDisplay = 'Sentinel-2 多光谱';
+                                    }
+
+                                    // 创建瓦片图层
+                                    const tileLayer = L.tileLayer(imageInfo.tile_url, {
+                                        minZoom: 1,
+                                        maxZoom: 14,
+                                        attribution: `${sensorTypeDisplay} Data`,
+                                        tms: false,
+                                        bounds: L.geoJSON(correctedGeometry).getBounds(),
+                                        errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAFgAJ/E58kCgAAAABJRU5ErkJggg=='  // 1x1透明图片
+                                    });
+
+                                    // 创建边界图层
+                                    const bounds = L.geoJSON(correctedGeometry, {
+                                        style: {
+                                            color: borderColor,      // 边界颜色
+                                            weight: 3,              // 边界宽度
+                                            opacity: 0.9,           // 边界不透明度
+                                            fillOpacity: 0.1        // 填充不透明度
+                                        }
+                                    });
+
+                                    // 设置边界图层的弹出信息
+                                    bounds.bindPopup(`
+                                        <div style="min-width: 200px;">
+                                            <h6 style="margin: 0 0 8px 0; font-weight: bold;">${result.name}</h6>
+                                            <div style="margin: 4px 0;">传感器类型: ${sensorTypeDisplay}</div>
+                                            <div style="margin: 4px 0;">分辨率: ${result.resolution}m</div>
+                                            <div style="margin: 4px 0;">获取时间: ${result.acquisition_date}</div>
+                                            ${result.wavelength_info ? 
+                                                `<div style="margin: 4px 0;">波段数: ${
+                                                    JSON.parse(result.wavelength_info).wavelengths.length
+                                                }</div>` : ''}
+                                            <div style="margin: 4px 0;">坐标系: ${result.coordinate_system}</div>
+                                        </div>
+                                    `);
+
+                                    // 将图层添加到对应的图层组
+                                    targetLayerGroup.addLayer(tileLayer);
+                                    targetLayerGroup.addLayer(bounds);
+                                    
+                                    // 确保图层组显示在地图上
+                                    if (!map.hasLayer(targetLayerGroup)) {
+                                        targetLayerGroup.addTo(map);
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('获取图像详细信息失败:', error);
+                                });
+                        }
+                    });
+                }
+                
+                // 在查询结果面板中显示结果列表
+                displayQueryResults(data.results || []);
+            })
+            .catch(error => {
+                console.error('查询失败:', error);
+                document.getElementById('queryResults').innerHTML = 
+                    `<div class="no-results">查询失败: ${error.message}</div>`;
+            });
+        });
+
+        // 在查询结果面板中显示查询结果列表
+        function displayQueryResults(results) {
+            const resultsContainer = document.getElementById('queryResults');
+            resultsContainer.innerHTML = '';
+
+            // 如果没有结果，显示提示信息
+            if (!results || results.length === 0) {
+                resultsContainer.innerHTML = '<div class="no-results">未找到符合条件的影像数据</div>';
+                return;
+            }
+
+            // 遍历结果并创建结果项
+            results.forEach(result => {
+                const resultItem = document.createElement('div');
+                resultItem.className = 'result-item';
+                
+                // 根据文件名确定传感器类型显示
+                let sensorTypeDisplay;
+                if (result.name.startsWith('GF5')) {
+                    sensorTypeDisplay = 'GF5 高光谱';
+                } else if (result.name.startsWith('AST')) {
+                    sensorTypeDisplay = 'ASTER 多光谱';
+                } else if (result.name.startsWith('PRS')) {
+                    sensorTypeDisplay = 'PRISMA 高光谱';
+                } else if (result.name.startsWith('S2')) {
+                    sensorTypeDisplay = 'Sentinel-2 多光谱';
+                } else {
+                    sensorTypeDisplay = result.sensor_type ? `${result.sensor_type} 影像` : '未知类型';
+                }
+                
+                // 格式化分辨率显示（保留两位小数）
+                const resolution = result.resolution ? 
+                    Number(result.resolution).toFixed(2) : '未知';
+
+                // 检查是否有蚀变分析结果
+                const hasPC = result.has_pc_alteration;      // PC方法结果
+                const hasRatio = result.has_ratio_alteration;  // Ratio方法结果
+                
+                // 创建结果项的HTML内容
+                resultItem.innerHTML = `
+                    <h6>${result.name}</h6>
+                    <div class="result-info">传感器类型: ${sensorTypeDisplay}</div>
+                    <div class="result-info">获取时间: ${result.acquisition_date}</div>
+                    <div class="result-info">分辨率: ${resolution}m</div>
+                    <div class="result-info">大小: ${formatFileSize(result.size || 0)}</div>
+                    <div class="result-info">坐标系: ${result.coordinate_system || 'WGS84'}</div>
+                    <div class="mb-2">
+                        <label class="form-label"><small>选择数据类型：</small></label>
+                        <select class="form-select form-select-sm" id="downloadType_${result.id}">
+                            <option value="original" selected>原始数据</option>
+                            ${hasPC ? '<option value="pc">蚀变指数-PC方法</option>' : ''}
+                            ${hasRatio ? '<option value="ratio">蚀变指数-Ratio方法</option>' : ''}
+                        </select>
+                    </div>
+                    <div class="result-actions">
+                        <button class="action-button" onclick="previewImage('${result.id}')">预览</button>
+                        <button class="action-button" onclick="showThumbnail('${result.name}')">缩略图</button>
+                        <div class="btn-group">
+                            <button class="action-button download" onclick="downloadHDR('${result.id}')">下载HDR</button>
+                            <button class="action-button download" onclick="downloadIMG('${result.id}')">下载IMG</button>
+                        </div>
+                        <div class="mt-2">
+                            <select class="form-select form-select-sm workstation-select" data-file-id="${result.id}">
+                                <option value="">选择工作站...</option>
+                                {% for ws in request.user.workstation_set.all %}
+                                <option value="{{ ws.id }}">{{ ws.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button class="btn btn-sm btn-success mt-1 w-100 add-to-workstation-btn" 
+                                    onclick="addToWorkstation(this, '${result.id}')" disabled>
+                                <i class="fas fa-plus"></i> 添加到工作站
+                            </button>
+                        </div>
+                    </div>
+                `;
+                resultsContainer.appendChild(resultItem);
+            });
+        }
+
+        // 下载HDR文件
+        function downloadHDR(id) {
+            const select = document.getElementById(`downloadType_${id}`);
+            const dataType = select.value;
+            const selectedOption = select.options[select.selectedIndex];
+            
+            // 验证数据类型选择
+            if (!selectedOption) {
+                alert('请选择要下载的数据类型');
+                return;
+            }
+
+            // 重定向到下载链接
+            window.location.href = `/geodata/download/${id}/?type=hdr&data_type=${dataType}`;
+        }
+
+        // 下载IMG文件
+        function downloadIMG(id) {
+            const select = document.getElementById(`downloadType_${id}`);
+            const dataType = select.value;
+            const selectedOption = select.options[select.selectedIndex];
+            
+            // 验证数据类型选择
+            if (!selectedOption) {
+                alert('请选择要下载的数据类型');
+                return;
+            }
+
+            // 重定向到下载链接
+            window.location.href = `/geodata/download/${id}/?type=img&data_type=${dataType}`;
+        }
+
+        // 格式化文件大小显示
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // 获取CSRF令牌
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // 预览影像
+        function previewImage(id) {
+            // 获取影像详细信息
+            fetch(`/geodata/api/image-info/${id}/`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('预览图像信息:', data);
+                    
+                    // 清除之前的预览图层
+                    enviLayerGroup.eachLayer(layer => {
+                        if (layer._previewLayer) {
+                            enviLayerGroup.removeLayer(layer);
+                        }
+                    });
+
+                    // 创建并修正图像边界的几何对象（转换坐标顺序）
+                    const correctedGeometry = {
+                        type: data.geometry.type,
+                        coordinates: data.geometry.coordinates.map(ring => 
+                            ring.map(coord => [coord[1], coord[0]])  // 交换经纬度顺序
+                        )
+                    };
+
+                    // 创建预览用的瓦片图层
+                    const tileLayer = L.tileLayer(data.tile_url, {
+                        minZoom: 1,
+                        maxZoom: 14,
+                        attribution: 'Sentinel-2 Data',
+                        tms: false,
+                        bounds: L.geoJSON(correctedGeometry).getBounds(),
+                        errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAFgAJ/E58kCgAAAABJRU5ErkJggg=='  // 1x1透明图片
+                    });
+                    tileLayer._previewLayer = true;  // 标记为预览图层
+
+                    // 创建预览用的高亮边界
+                    const bounds = L.geoJSON(correctedGeometry, {
+                        style: {
+                            color: '#2ecc71',  // 使用绿色来区分预览的图像
+                            weight: 3,         // 边界宽度
+                            opacity: 0.9,      // 边界不透明度
+                            fillOpacity: 0.2,  // 填充不透明度
+                            dashArray: '5, 10' // 虚线边界效果
+                        }
+                    });
+                    bounds._previewLayer = true;  // 标记为预览图层
+
+                    // 将预览图层添加到地图
+                    enviLayerGroup.addLayer(tileLayer);
+                    enviLayerGroup.addLayer(bounds);
+
+                    // 确保遥感图层组显示在地图上
+                    if (!map.hasLayer(enviLayerGroup)) {
+                        enviLayerGroup.addTo(map);
+                        document.querySelector('.layer-control').style.display = 'block';
+                    }
+
+                    // 调整地图视角以显示完整的预览图像
+                    const layerBounds = bounds.getBounds();
+                    map.fitBounds(layerBounds, {
+                        padding: [50, 50],  // 添加50像素的内边距
+                        maxZoom: 14        // 限制最大缩放级别
+                    });
+
+                    // 添加包含图像信息的弹出框
+                    bounds.bindPopup(`
+                        <b>${data.name}</b><br>
+                        分辨率: ${data.resolution}m<br>
+                        日期: ${data.acquisition_date}<br>
+                        <small>这是预览图像</small>
+                    `).openPopup();
+                })
+                .catch(error => {
+                    console.error('获取图像信息失败:', error);
+                    alert('预览图像失败，请稍后重试');
+                });
+        }
+
+        // 下载指定ID的影像
+        function downloadImage(id) {
+            window.location.href = `/geodata/api/download/${id}/`;
+        }
+
+        // 缩略图相关功能
+        // 显示缩略图
+        function showThumbnail(imageName) {
+            const modal = document.getElementById('thumbnailModal');
+            const title = modal.querySelector('.thumbnail-title');
+            const image = modal.querySelector('.thumbnail-image');
+            
+            // 设置缩略图标题和图片路径
+            title.textContent = imageName;
+            image.src = "{% get_media_prefix %}thumbnails/" + imageName + "_thumb.png";
+            
+            // 显示缩略图弹窗
+            modal.style.display = 'block';
+        }
+
+        // 关闭缩略图弹窗
+        document.querySelector('.thumbnail-close').addEventListener('click', function() {
+            document.getElementById('thumbnailModal').style.display = 'none';
+        });
+
+        // 点击弹窗外部区域关闭缩略图弹窗
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('thumbnailModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+        // 重新加载所有遥感影像
+        function reloadAllImages() {
+            // 清除所有现有图层
+            sentinel2LayerGroup.clearLayers();
+            gf5LayerGroup.clearLayers();
+            asterLayerGroup.clearLayers();
+            prismaLayerGroup.clearLayers();
+            
+            // 从服务器重新获取所有遥感影像数据
+            fetch('/geodata/api/envi-data/')
+                .then(response => response.json())
+                .then(data => {
+                    console.log("重新加载数据:", data);
+                    
+                    // 处理每个遥感影像数据
+                    data.features.forEach(item => {
+                        // 修正几何坐标（转换经纬度顺序）
+                        const correctedGeometry = {
+                            type: item.geometry.type,
+                            coordinates: item.geometry.coordinates.map(ring => 
+                                ring.map(coord => [coord[1], coord[0]])
+                            )
+                        };
+                        
+                        // 根据传感器类型设置显示参数
+                        let borderColor;
+                        let sensorTypeDisplay;
+                        let targetLayerGroup;
+
+                        switch(item.properties.sensor_type) {
+                            case 'GF5':
+                                borderColor = '#ff6b6b';        // 红色
+                                sensorTypeDisplay = 'GF5 高光谱';
+                                targetLayerGroup = gf5LayerGroup;
+                                break;
+                            case 'ASTER':
+                                borderColor = '#2ecc71';        // 绿色
+                                sensorTypeDisplay = 'ASTER 多光谱';
+                                targetLayerGroup = asterLayerGroup;
+                                break;
+                            case 'PRISMA':
+                                borderColor = '#9b59b6';        // 紫色
+                                sensorTypeDisplay = 'PRISMA 高光谱';
+                                targetLayerGroup = prismaLayerGroup;
+                                break;
+                            default:
+                                borderColor = '#00f0ff';        // 青色
+                                sensorTypeDisplay = 'Sentinel-2 多光谱';
+                                targetLayerGroup = sentinel2LayerGroup;
+                        }
+
+                        // 创建瓦片图层
+                        const tileLayer = L.tileLayer(item.properties.tile_url, {
+                            minZoom: 1,
+                            maxZoom: 14,
+                            attribution: `${sensorTypeDisplay} Data`,
+                            tms: false,
+                            bounds: L.geoJSON(correctedGeometry).getBounds(),
+                            errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAFgAJ/E58kCgAAAABJRU5ErkJggg=='
+                        });
+
+                        // 创建边界图层
+                        const bounds = L.geoJSON(correctedGeometry, {
+                            style: {
+                                color: borderColor,
+                                weight: 3,
+                                opacity: 0.9,
+                                fillOpacity: 0.1
+                            }
+                        });
+
+                        // 设置边界图层的弹出信息
+                        bounds.bindPopup(`
+                            <div style="min-width: 200px;">
+                                <h6 style="margin: 0 0 8px 0; font-weight: bold;">${item.properties.name}</h6>
+                                <div style="margin: 4px 0;">传感器类型: ${sensorTypeDisplay}</div>
+                                <div style="margin: 4px 0;">分辨率: ${formatResolution(item.properties.resolution)}m</div>
+                                <div style="margin: 4px 0;">获取时间: ${item.properties.acquisition_date}</div>
+                                ${item.properties.wavelength_info ? 
+                                    `<div style="margin: 4px 0;">波段数: ${
+                                        JSON.parse(item.properties.wavelength_info).wavelengths.length
+                                    }</div>` : ''}
+                                <div style="margin: 4px 0;">坐标系: ${item.properties.coordinate_system || 'WGS84'}</div>
+                            </div>
+                        `);
+
+                        // 将图层添加到对应的图层组
+                        targetLayerGroup.addLayer(tileLayer);
+                        targetLayerGroup.addLayer(bounds);
+                        boundaryLayers.push(bounds);
+                    });
+                    
+                    // 根据当前显示状态重新添加图层到地图
+                    if (map.hasLayer(sentinel2LayerGroup)) sentinel2LayerGroup.addTo(map);
+                    if (map.hasLayer(gf5LayerGroup)) gf5LayerGroup.addTo(map);
+                    if (map.hasLayer(asterLayerGroup)) asterLayerGroup.addTo(map);
+                    if (map.hasLayer(prismaLayerGroup)) prismaLayerGroup.addTo(map);
+                })
+                .catch(error => {
+                    console.error('重新加载数据失败:', error);
+                });
+        }
+
+        // 初始化Bootstrap工具提示
+        document.addEventListener('DOMContentLoaded', function() {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl, {
+                    html: true
+                });
+            });
+        });
+
+        // 位置搜索功能
+        // 搜索按钮点击事件
+        document.getElementById('searchLocation').addEventListener('click', function() {
+            searchLocation();
+        });
+
+        // 搜索输入框回车事件
+        document.getElementById('locationSearch').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchLocation();
+            }
+        });
+
+        // 执行位置搜索
+        function searchLocation() {
+            const input = document.getElementById('locationSearch').value;
+            const coordinates = parseCoordinates(input);
+            
+            if (coordinates) {
+                // 移动地图视角到搜索位置
+                map.setView([coordinates.lat, coordinates.lng], 9);
+            } else {
+                alert('请输入有效的经纬度格式！\n例如：35.123, 105.456\n或：35°30\'25"N, 105°27\'22"E');
+            }
+        }
+
+        // 解析坐标字符串
+        function parseCoordinates(input) {
+            // 移除所有空格
+            input = input.replace(/\s+/g, '');
+            
+            // 尝试解析十进制度数格式 (例如: 35.123,105.456)
+            let match = input.match(/^(-?\d+\.?\d*),(-?\d+\.?\d*)$/);
+            if (match) {
+                return {
+                    lat: parseFloat(match[1]),
+                    lng: parseFloat(match[2])
+                };
+            }
+            
+            // 尝试解析度分秒格式 (例如: 35°30'25"N,105°27'22"E)
+            match = input.match(/^(\d+)°(\d+)'(\d+)"([NS]),(\d+)°(\d+)'(\d+)"([EW])$/);
+            if (match) {
+                // 将度分秒转换为十进制度数
+                const lat = (parseInt(match[1]) + parseInt(match[2])/60 + parseInt(match[3])/3600) * (match[4] === 'N' ? 1 : -1);
+                const lng = (parseInt(match[5]) + parseInt(match[6])/60 + parseInt(match[7])/3600) * (match[8] === 'E' ? 1 : -1);
+                return {
+                    lat: lat,
+                    lng: lng
+                };
+            }
+            
+            return null;  // 如果无法解析坐标格式，返回null
+        }
+
+        // 格式化分辨率显示
+        function formatResolution(resolution) {
+            if (!resolution) return '未知';
+            
+            // 处理小于1的分辨率值（可能是以度为单位）
+            if (resolution < 1) {
+                // 将经纬度分辨率转换为米（在赤道处1度约等于111.32公里）
+                const resolutionInMeters = resolution * 111320;
+                return resolutionInMeters.toFixed(2);  // 保留两位小数
+            }
+            
+            // 处理大于等于1的分辨率值（假设已经是米为单位）
+            return parseFloat(resolution).toFixed(2);  // 保留两位小数
+        }
+
+        // 工作站相关功能
+        // 将文件添加到工作站
+        function addToWorkstation(btn, fileId) {
+            const select = btn.parentElement.querySelector('.workstation-select');
+            const workstationId = select.value;
+            
+            // 验证是否选择了工作站
+            if (!workstationId) {
+                alert('请选择工作站');
+                return;
+            }
+            
+            // 发送添加到工作站的请求
+            fetch('{% url "geodata:add_to_workstation" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'  // Django CSRF令牌
+                },
+                body: JSON.stringify({
+                    workstation_id: workstationId,
+                    file_ids: [fileId]
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);  // 显示错误信息
+                } else {
+                    alert(data.message);  // 显示成功消息
+                    // 禁用相关控件，防止重复添加
+                    btn.disabled = true;
+                    select.disabled = true;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('添加到工作站失败，请重试');
+            });
+        }
+
+        // 监听工作站选择下拉框的变化
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('workstation-select')) {
+                // 获取对应的添加按钮
+                const btn = e.target.parentElement.querySelector('.add-to-workstation-btn');
+                // 根据是否选择了工作站来启用/禁用添加按钮
+                btn.disabled = !e.target.value;
+            }
+        });
+    </script>
+</body>
+</html>

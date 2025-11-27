@@ -1,0 +1,309 @@
+{% extends 'geodata/base.html' %}
+
+<!-- 主要内容区域 -->
+{% block content %}
+<div class="container mt-4">
+    <!-- 面包屑导航 -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'geodata:workstation_list' %}">我的工作站</a></li>
+            <li class="breadcrumb-item active">{{ workstation.name }}</li>
+        </ol>
+    </nav>
+
+    <!-- 工作站信息卡片 -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h2 class="card-title">{{ workstation.name }}</h2>
+            <p class="card-text">{{ workstation.description|default:"暂无描述" }}</p>
+            <p class="card-text">
+                <small class="text-muted">
+                    创建时间: {{ workstation.created_at|date:"Y-m-d H:i" }} |
+                    文件数量: {{ files|length }}
+                </small>
+            </p>
+        </div>
+    </div>
+
+    <!-- 文件列表卡片 -->
+    <div class="card">
+        <!-- 卡片头部 -->
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">文件列表</h5>
+                <!-- 批量操作按钮组 -->
+                <div class="btn-group">
+                    <button class="btn btn-danger" id="batchDownloadBtn" disabled>
+                        <i class="fas fa-download"></i> 批量下载
+                    </button>
+                    <button class="btn btn-outline-danger" id="removeSelectedBtn" disabled>
+                        <i class="fas fa-trash-alt"></i> 移除选中
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- 卡片主体 -->
+        <div class="card-body">
+            <!-- 文件列表表格 -->
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>
+                                <input type="checkbox" id="selectAll" class="form-check-input">
+                            </th>
+                            <th>文件名</th>
+                            <th>传感器类型</th>
+                            <th>分辨率</th>
+                            <th>获取时间</th>
+                            <th>添加时间</th>
+                            <th>备注</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for file in files %}
+                        <tr>
+                            <!-- 文件选择框 -->
+                            <td>
+                                <input type="checkbox" class="form-check-input file-checkbox" 
+                                       value="{{ file.envi_file.id }}">
+                            </td>
+                            <!-- 文件基本信息 -->
+                            <td>{{ file.envi_file.name }}</td>
+                            <td>{{ file.envi_file.envi_data.get_sensor_type_display }}</td>
+                            <td>{{ file.envi_file.envi_data.resolution }}m</td>
+                            <td>{{ file.envi_file.envi_data.acquisition_date }}</td>
+                            <td>{{ file.added_at|date:"Y-m-d H:i" }}</td>
+                            <!-- 备注编辑区域 -->
+                            <td>
+                                <span class="note-text">{{ file.notes|default:"" }}</span>
+                                <button class="btn btn-sm btn-link edit-note-btn">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                            </td>
+                            <!-- 操作按钮 -->
+                            <td>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-success download-btn"
+                                            data-file-id="{{ file.envi_file.id }}">
+                                        下载
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <!-- 无文件提示 -->
+                        <tr>
+                            <td colspan="8" class="text-center">
+                                暂无文件，请在空间查询结果中添加文件到工作站
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑备注模态框 -->
+<div class="modal fade" id="editNoteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <!-- 模态框标题 -->
+            <div class="modal-header">
+                <h5 class="modal-title">编辑备注</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <!-- 模态框主体 -->
+            <div class="modal-body">
+                <textarea class="form-control" id="noteText" rows="3"></textarea>
+            </div>
+            <!-- 模态框按钮 -->
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="saveNoteBtn">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+<!-- JavaScript代码 -->
+{% block extra_js %}
+<script>
+// 全选功能
+document.getElementById('selectAll').addEventListener('change', function() {
+    const checkboxes = document.getElementsByClassName('file-checkbox');
+    Array.from(checkboxes).forEach(checkbox => checkbox.checked = this.checked);
+    updateButtonState();
+});
+
+// 更新按钮状态
+function updateButtonState() {
+    const checkedBoxes = document.querySelectorAll('.file-checkbox:checked');
+    const batchDownloadBtn = document.getElementById('batchDownloadBtn');
+    const removeSelectedBtn = document.getElementById('removeSelectedBtn');
+    
+    batchDownloadBtn.disabled = checkedBoxes.length === 0;
+    removeSelectedBtn.disabled = checkedBoxes.length === 0;
+}
+
+// 监听复选框变化
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('file-checkbox')) {
+        updateButtonState();
+    }
+});
+
+// 下载按钮事件监听
+document.querySelectorAll('.download-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const fileId = this.dataset.fileId;
+        // 在新窗口中下载HDR文件
+        window.open(`{% url 'geodata:download_file' 0 %}?type=hdr`.replace('0', fileId), '_blank');
+        // 延迟100ms后下载IMG文件
+        setTimeout(() => {
+            window.open(`{% url 'geodata:download_file' 0 %}?type=img`.replace('0', fileId), '_blank');
+        }, 100);
+    });
+});
+
+// 批量下载功能
+document.getElementById('batchDownloadBtn').addEventListener('click', function() {
+    // 获取选中的文件ID
+    const selectedFiles = Array.from(document.querySelectorAll('.file-checkbox:checked'))
+        .map(checkbox => checkbox.value);
+    
+    if (selectedFiles.length === 0) {
+        alert('请选择要下载的文件');
+        return;
+    }
+
+    // 创建下载表单
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{% url "geodata:batch_download" %}';
+    form.target = '_blank';  // 在新窗口中打开
+    
+    // 添加CSRF令牌
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = '{{ csrf_token }}';
+    form.appendChild(csrfInput);
+    
+    // 添加工作站ID
+    const wsInput = document.createElement('input');
+    wsInput.type = 'hidden';
+    wsInput.name = 'workstation_id';
+    wsInput.value = '{{ workstation.id }}';
+    form.appendChild(wsInput);
+    
+    // 添加选中的文件ID
+    selectedFiles.forEach(fileId => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'file_ids';
+        input.value = fileId;
+        form.appendChild(input);
+    });
+    
+    // 提交表单
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+});
+
+// 移除选中文件
+document.getElementById('removeSelectedBtn').addEventListener('click', function() {
+    if (!confirm('确定要移除选中的文件吗？')) {
+        return;
+    }
+    
+    // 获取选中的文件ID
+    const selectedFiles = Array.from(document.querySelectorAll('.file-checkbox:checked'))
+        .map(checkbox => checkbox.value);
+    
+    // 准备请求数据
+    const data = {
+        workstation_id: {{ workstation.id }},
+        file_ids: selectedFiles
+    };
+    
+    // 发送移除请求
+    fetch('{% url "geodata:remove_from_workstation" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+        } else {
+            location.reload();  // 移除成功后刷新页面
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('移除文件失败，请重试');
+    });
+});
+
+// 编辑备注功能
+let currentEditingRow = null;
+const editNoteModal = new bootstrap.Modal(document.getElementById('editNoteModal'));
+
+// 编辑备注按钮点击事件
+document.querySelectorAll('.edit-note-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        currentEditingRow = this.closest('tr');
+        const noteText = currentEditingRow.querySelector('.note-text').textContent;
+        document.getElementById('noteText').value = noteText;
+        editNoteModal.show();
+    });
+});
+
+// 保存备注按钮点击事件
+document.getElementById('saveNoteBtn').addEventListener('click', function() {
+    const noteText = document.getElementById('noteText').value;
+    const fileId = currentEditingRow.querySelector('.file-checkbox').value;
+    
+    // 准备请求数据
+    const data = {
+        workstation_id: {{ workstation.id }},
+        file_id: fileId,
+        note: noteText
+    };
+    
+    // 发送保存请求
+    fetch('{% url "geodata:save_file_note" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+        } else {
+            currentEditingRow.querySelector('.note-text').textContent = data.note;
+            editNoteModal.hide();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('保存备注失败，请重试');
+    });
+});
+</script>
+{% endblock %} 
