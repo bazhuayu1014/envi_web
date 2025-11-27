@@ -62,6 +62,12 @@ Thumbs.db
 githubtoken.txt
 *token*.txt
 
+# GitHub 上传辅助文件（不需要上传到仓库）
+GITHUB_PUSH_SOLUTIONS.md
+upload_to_github.ps1
+upload_to_github.sh
+package_project.py
+
 # 数据库备份
 *.dump
 *.sql
